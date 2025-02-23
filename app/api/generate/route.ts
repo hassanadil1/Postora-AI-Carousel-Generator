@@ -1,5 +1,11 @@
 import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { Groq } from "groq-sdk";
+
+// Initialize Groq client
+const groq = new Groq({
+  apiKey: process.env.GROQ_API_KEY
+});
 
 export async function POST(request: Request) {
   try {
@@ -20,37 +26,31 @@ export async function POST(request: Request) {
     }
 
     try {
-      const response = await fetch("http://localhost:11434/api/generate", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "deepseek-r1:1.5b",
-          prompt: `Analyze this text and generate exactly ten key bullet points. 
-          Use the following format for each bullet point: 
-          bullet point main idea: bullet point details.
-          The bullet point main idea should be a single sentence that captures the main idea of the bullet point.
-          The bullet point details should be a single sentence that provides more information about the bullet point.
-          The bullet point main idea and details should be separated by a colon.
-          The bullet points should be separated by a new line.
-          The bullet points should be in the same order as they appear in the text.
-          Your output should contain nothing but bullet points.\n\n${body.content}`,
-          stream: false
-
-        }),
+      const completion = await groq.chat.completions.create({
+        messages: [
+          {
+            role: "user",
+            content: `Analyze this text and generate exactly ten key bullet points. 
+            Use the following format for each bullet point: 
+            [Bullet point HEADING]: [Bullet point details].
+            The bullet point heading should be a single sentence that captures the main idea of the bullet point.
+            The bullet point details should be a single sentence that provides more information about the bullet point.
+            The bullet point heading and details should be separated by a colon.
+            The bullet points should be separated by a new line.
+            The bullet points should be in the same order as they appear in the text.
+            Your output should contain nothing but bullet points.\n\n${body.content}`
+          }
+        ],
+        model: "llama-3.3-70b-versatile",
+        temperature: 0.7,
+        max_tokens: 1024,
+        stream: false
       });
 
-      const data = await response.json();
+      const response = completion.choices[0]?.message?.content || "";
       
-      // Extract only the actual bullet points after the thinking process
-      let cleanedResponse = data.response;
-      if (cleanedResponse.includes('</think>')) {
-        cleanedResponse = cleanedResponse.split('</think>')[1].trim();
-      }
-
       // Format the bullet points
-      const bulletPoints = cleanedResponse
+      const bulletPoints = response
         .split('\n')
         .filter((line: string) => line.trim())
         .map((point: string, index: number) => ({
@@ -58,13 +58,12 @@ export async function POST(request: Request) {
           point: point.replace(/^[•\-\*]\s*/, '').trim(),
           relevance: 1 - (index * 0.05)
         }))
-
         .slice(0, 10);
 
       return NextResponse.json({ bulletPoints });
 
     } catch (error) {
-      console.error("Ollama error:", error);
+      console.error("Groq API error:", error);
       return NextResponse.json(
         { error: "Failed to generate bullet points" },
         { status: 500 }
