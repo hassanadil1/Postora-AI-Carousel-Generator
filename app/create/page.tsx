@@ -1,9 +1,25 @@
+"use client";
 import { ContentInput } from "@/components/content-input";
 import { OutputCustomization } from "@/components/output-customization";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { GenerationProvider } from "@/lib/contexts/generation-context";
+import { useState, useEffect } from "react";
+import { Loader2 } from "lucide-react";
 
 export default function CreatePage() {
+  // Use this to prevent rendering anything meaningful during SSR
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  // Return a minimal placeholder during SSR
+  if (!isMounted) {
+    return <div id="create-page-loading"></div>;
+  }
+
+  // Only render the full content on the client
   return (
     <GenerationProvider>
       <main className="container mx-auto px-4 py-8">

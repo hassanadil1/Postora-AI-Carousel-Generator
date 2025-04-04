@@ -31,6 +31,11 @@ export function ContentInput() {
 
     setIsGenerating(true);
     try {
+      console.log("Sending content to API:", content.substring(0, 100) + "...");
+      
+      // Set loading state in context
+      setBulletPoints([]);
+      
       const response = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -38,24 +43,34 @@ export function ContentInput() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate bullet points');
+        const errorData = await response.json();
+        console.error("API error:", errorData);
+        throw new Error(errorData.error || 'Failed to generate bullet points');
       }
 
       const data = await response.json();
       console.log('Generated bullets:', data.bulletPoints);
       
-      setBulletPoints(data.bulletPoints.map((item: any) => item.point));
+      if (!data.bulletPoints || !Array.isArray(data.bulletPoints) || data.bulletPoints.length === 0) {
+        throw new Error('No bullet points returned from API');
+      }
+      
+      // Store the raw bullet points directly
+      setBulletPoints(data.bulletPoints);
+      
+      // Also save to localStorage
+      localStorage.setItem("bulletPoints", JSON.stringify(data.bulletPoints));
       
       toast({
         title: "Success!",
-        description: "Bullet points generated successfully",
+        description: `Generated ${data.bulletPoints.length} bullet points`,
       });
 
     } catch (error) {
       console.error('Error:', error);
       toast({
         title: "Error",
-        description: "Failed to generate bullet points",
+        description: error instanceof Error ? error.message : "Failed to generate bullet points",
         variant: "destructive",
       });
     } finally {
@@ -159,7 +174,7 @@ export function ContentInput() {
                     type="url"
                     placeholder="Enter blog URL (e.g., https://example.com/blog-post)"
                     value={url}
-                    onChange={(e) => setUrl(e.target.value)}
+                    onChange={(e: React.ChangeEvent<HTMLInputElement>) => setUrl(e.target.value)}
                     className="flex-1"
                   />
                   <Button 

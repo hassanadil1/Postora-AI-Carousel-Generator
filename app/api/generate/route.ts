@@ -2,9 +2,9 @@ import { currentUser } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { Groq } from "groq-sdk";
 
-// Initialize Groq client
+// Initialize Groq client with correct configuration
 const groq = new Groq({
-  apiKey: process.env.GROQ_API_KEY
+  apiKey: process.env.GROQ_API_KEY,
 });
 
 export async function POST(request: Request) {
@@ -14,10 +14,9 @@ export async function POST(request: Request) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    // Log the request body for debugging
+    // Get content from request body
     const body = await request.json();
-    console.log('Received content:', body);
-
+    
     if (!body.content) {
       return NextResponse.json(
         { error: "No content provided" },
@@ -26,53 +25,55 @@ export async function POST(request: Request) {
     }
 
     try {
+      console.log("Calling Groq API with content length:", body.content.length);
+      
       const completion = await groq.chat.completions.create({
         messages: [
           {
             role: "user",
-            content: `Analyze this text and generate exactly ten key bullet points. 
+            content: `Analyze this text and generate exactly 10 key bullet points. 
             Use the following format for each bullet point: 
             [Bullet point HEADING]: [Bullet point details].
             The bullet point heading should be a single sentence that captures the main idea of the bullet point.
             The bullet point details should be a single sentence that provides more information about the bullet point.
             The bullet point heading and details should be separated by a colon.
             The bullet points should be separated by a new line.
-            The bullet points should be in the same order as they appear in the text.
             Your output should contain nothing but bullet points.\n\n${body.content}`
           }
         ],
-        model: "llama-3.3-70b-versatile",
+        model: "llama-3.1-8b-instant",
         temperature: 0.7,
-        max_tokens: 1024,
-        stream: false
+        max_tokens: 1024
       });
 
       const response = completion.choices[0]?.message?.content || "";
+      console.log("Groq API response:", response);
       
-      // Format the bullet points
+      // Format the bullet points - make sure to return as an array
       const bulletPoints = response
         .split('\n')
         .filter((line: string) => line.trim())
-        .map((point: string, index: number) => ({
-          priority: index + 1,
-          point: point.replace(/^[•\-\*]\s*/, '').trim(),
-          relevance: 1 - (index * 0.05)
-        }))
-        .slice(0, 10);
+        .map((point: string) => point.replace(/^[•\-\*]\s*/, '').trim())
+        .filter((point: string) => point.length > 0);
 
+      console.log("Formatted bullet points:", bulletPoints);
+      
       return NextResponse.json({ bulletPoints });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Groq API error:", error);
       return NextResponse.json(
-        { error: "Failed to generate bullet points" },
+        { 
+          error: "Failed to generate bullet points",
+          details: error.message || "Unknown error"
+        },
         { status: 500 }
       );
     }
-  } catch (error) {
+  } catch (error: any) {
     console.error("Request error:", error);
     return NextResponse.json(
-      { error: "Invalid request format" },
+      { error: "Invalid request format", details: error.message },
       { status: 400 }
     );
   }

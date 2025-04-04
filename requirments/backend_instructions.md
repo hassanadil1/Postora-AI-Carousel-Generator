@@ -1,131 +1,79 @@
 #Project Overview
-Connect the databse to this project.
-Then use this guide to build the backend for the project, Postora.
 
-#Tech Stack
-- We will use Next.js, Supabase, Clerk.
+We're already off to a strong start—having bullet points, design presets, and brand customization is huge. From here, your next moves should be about turning that structured input into polished visual output. Here’s a step-by-step plan to move forward:
 
-#Tables and Buckets Already Created
-- Tables:
+1. Build a Carousel Layout Engine
+You need a way to convert:
 
-    - users
-    CREATE TABLE users (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    auth_id UUID UNIQUE NOT NULL,
-    email TEXT UNIQUE NOT NULL,
-    tier VARCHAR(20) NOT NULL DEFAULT 'free',
-    stripe_customer_id TEXT UNIQUE,
-    subscription_id TEXT,
-    subscription_end TIMESTAMPTZ,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    last_login TIMESTAMPTZ,
-    metadata JSONB,
-    password TEXT NOT NULL
-);
+Bullet points
 
-    - generations
-    CREATE TABLE generations (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    input_content TEXT NOT NULL,
-    output_format VARCHAR(20) NOT NULL,
-    bullet_points JSONB,
-    canva_design_id TEXT,
-    status VARCHAR(20) NOT NULL DEFAULT 'queued',
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    deleted_at TIMESTAMPTZ
-);
+Design preset
 
+Brand colors
 
+Logo
 
-    - subscriptions
-    CREATE TABLE subscriptions (
-    id BIGSERIAL PRIMARY KEY,
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    stripe_sub_id TEXT NOT NULL,
-    plan VARCHAR(20) NOT NULL,
-    status VARCHAR(20) NOT NULL,
-    start_date TIMESTAMPTZ NOT NULL,
-    end_date TIMESTAMPTZ NOT NULL
-);
-    - templates
-    CREATE TABLE templates (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    name TEXT NOT NULL,
-    type VARCHAR(20) NOT NULL,
-    content JSONB NOT NULL,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+…into a visual slide.
 
+How:
 
+Create 1–2 HTML/CSS templates per design preset (playful, funky, professional).
 
-    - webhook_event
-    CREATE TABLE webhook_events (
-    id BIGSERIAL PRIMARY KEY,
-    type TEXT NOT NULL,
-    payload JSONB NOT NULL,
-    processed BOOLEAN NOT NULL DEFAULT false,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
+Use CSS variables or Tailwind to dynamically apply brand colors and fonts.
 
+Reserve layout slots for:
 
+Slide heading/subheading
 
-Security Features already implemented:
-ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+Bullet points (1–3 max)
 
-CREATE POLICY "Users can only view their own data"
-ON users
-FOR SELECT
-USING (auth.uid() = id);
+Logo (usually bottom corner or top right)
 
-ALTER TABLE generations ENABLE ROW LEVEL SECURITY;
+2. Automate Design Assembly
+When bullet points are generated, build a function that:
 
-CREATE POLICY "User generations access"
-ON generations
-FOR ALL
-USING (auth.uid() = user_id);
+Splits them into slides (based on type/priority).
 
+Assigns each slide to the corresponding HTML layout.
 
+Applies the user’s design preset and brand colors.
 
-- Buckets:
-    -postora-generations
+Tools you can use:
 
-# Requirements
-- Connect the database to this project.
-- Implement the security features.
-- Implement the api routes.
-- Implement the webhooks.
+For web rendering: React + Tailwind
 
-1. create user to user table
-##After the sign in via clerk, create a user in the user table. no duplicates.
-##If the user already exists, update the last_login field.
-##If the user does not exist, create a new user in the user table.
+For server-side image export: Puppeteer (headless Chrome), html2image, or Playwright
 
-2. Upload
-##After the user is created, upload the generations to the postora-generations bucket.
+For live preview: use <div>-based slides with a "preview mode"
 
-Also make sure the user can download their own generations from the postora-generations bucket.
+3. Integrate the Logo
+Use the uploaded logo and:
 
+Resize and place it consistently across slides.
 
+Add logic to optionally remove the background or fit it into a badge-style element (e.g., using remove.bg API or similar if needed).
 
+4. Add Navigation and Export
+Let users:
 
+Preview all slides
 
-#Relevant Docs
-## Example of uploading files to supabase storage
-import { createClient } from '@supabase/supabase-js'
-// create supabase client
-const supabase = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-)
+Reorder slides if needed
 
-// upload file to bucket
-const { data, error } = await supabase.storage
-  .from('postora-generations')
-  .upload(`${user.id}/generation-${generation.id}.png`, file)
+Export as:
 
+A ZIP of PNGs
 
+A shareable PDF
+
+Or even directly post to LinkedIn via API later
+
+5. Optional but Nice-to-Have
+Typography pairing logic: Recommend good font combos for each preset.
+
+Image suggestions: Use OpenAI or Unsplash API to suggest background images.
+
+Content preview: Highlight how it would appear on LinkedIn in-feed.
 
 
 
