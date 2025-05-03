@@ -1,6 +1,10 @@
 import { currentUser } from '@clerk/nextjs/server';
 import { NextResponse } from 'next/server';
-import { supabase } from '@/lib/supabase';
+import { supabase, verifyConnection } from '@/lib/supabase';
+
+// Use a cache to avoid repeated database operations for the same user
+const userCache = new Map<string, {data: any, timestamp: number}>();
+const CACHE_TTL = 5 * 60 * 1000; // 5 minutes
 
 export async function POST() {
   try {
@@ -11,6 +15,24 @@ export async function POST() {
     }
 
     const email = user.emailAddresses[0].emailAddress;
+    
+    // Check cache first
+    const cachedUser = userCache.get(user.id);
+    const now = Date.now();
+    
+    if (cachedUser && (now - cachedUser.timestamp < CACHE_TTL)) {
+      // Return cached data if it's fresh
+      return NextResponse.json(cachedUser.data);
+    }
+    
+    // Verify connection before proceeding
+    const isConnected = await verifyConnection();
+    if (!isConnected) {
+      return NextResponse.json(
+        { error: "Database connection error", details: "Could not connect to database" },
+        { status: 503 }
+      );
+    }
     
     try {
       // Check if user exists
@@ -24,6 +46,8 @@ export async function POST() {
         throw fetchError;
       }
 
+      let result;
+      
       if (!existingUser) {
         // Create new user
         const { data: newUser, error: insertError } = await supabase
@@ -47,31 +71,39 @@ export async function POST() {
         if (insertError) {
           throw insertError;
         }
+        
+        result = newUser;
+      } else {
+        // Update existing user
+        const { data: updatedUser, error: updateError } = await supabase
+          .from('users')
+          .update({
+            email,
+            last_login: new Date().toISOString(),
+            metadata: {
+              first_name: user.firstName,
+              last_name: user.lastName,
+              image_url: user.imageUrl
+            }
+          })
+          .eq('auth_id', user.id)
+          .select()
+          .single();
 
-        return NextResponse.json(newUser);
+        if (updateError) {
+          throw updateError;
+        }
+        
+        result = updatedUser;
       }
+      
+      // Cache the result
+      userCache.set(user.id, {
+        data: result,
+        timestamp: now
+      });
 
-      // Update existing user
-      const { data: updatedUser, error: updateError } = await supabase
-        .from('users')
-        .update({
-          email,
-          last_login: new Date().toISOString(),
-          metadata: {
-            first_name: user.firstName,
-            last_name: user.lastName,
-            image_url: user.imageUrl
-          }
-        })
-        .eq('auth_id', user.id)
-        .select()
-        .single();
-
-      if (updateError) {
-        throw updateError;
-      }
-
-      return NextResponse.json(updatedUser);
+      return NextResponse.json(result);
 
     } catch (dbError: any) {
       console.error('Database query failed:', dbError);

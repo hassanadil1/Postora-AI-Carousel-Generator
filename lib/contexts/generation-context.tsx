@@ -1,5 +1,6 @@
 "use client";
 import { createContext, useContext, useState, ReactNode, useEffect } from 'react';
+import { getData, storeData, STORAGE_KEYS } from '@/lib/local-storage';
 
 interface GenerationContextType {
   bulletPoints: string[];
@@ -18,18 +19,22 @@ export function GenerationProvider({ children }: { children: ReactNode }) {
   // Load from localStorage on client only
   useEffect(() => {
     try {
-      const stored = localStorage.getItem('bulletPoints');
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setBulletPoints(parsed);
-        }
+      const stored = getData(STORAGE_KEYS.BULLET_POINTS);
+      if (stored && Array.isArray(stored) && stored.length > 0) {
+        setBulletPoints(stored);
       }
     } catch (e) {
       console.error('Error loading from localStorage:', e);
     }
     setInitialized(true);
   }, []);
+
+  // Save to localStorage when bulletPoints change
+  useEffect(() => {
+    if (initialized && bulletPoints.length > 0) {
+      storeData(STORAGE_KEYS.BULLET_POINTS, bulletPoints);
+    }
+  }, [bulletPoints, initialized]);
 
   // Only provide context value after initialization
   if (!initialized) {

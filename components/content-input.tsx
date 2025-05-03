@@ -10,6 +10,7 @@ import { PenLine, Upload, Link as LinkIcon, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useGeneration } from "@/lib/contexts/generation-context";
 import { Input } from "@/components/ui/input";
+import { storeData, STORAGE_KEYS } from "@/lib/local-storage";
 
 export function ContentInput() {
   const [content, setContent] = useState("");
@@ -42,29 +43,34 @@ export function ContentInput() {
         body: JSON.stringify({ content }),
       });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error("API error:", errorData);
-        throw new Error(errorData.error || 'Failed to generate bullet points');
+      let errorMessage = 'Failed to generate bullet points';
+      
+      try {
+        const data = await response.json();
+        
+        if (!response.ok) {
+          console.error("API error:", data);
+          errorMessage = data.error || data.details || errorMessage;
+          throw new Error(errorMessage);
+        }
+        
+        console.log('Generated bullets:', data.bulletPoints);
+        
+        if (!data.bulletPoints || !Array.isArray(data.bulletPoints) || data.bulletPoints.length === 0) {
+          throw new Error('No bullet points returned from API');
+        }
+        
+        // Store the raw bullet points directly
+        setBulletPoints(data.bulletPoints);
+        
+        toast({
+          title: "Success!",
+          description: `Generated ${data.bulletPoints.length} bullet points`,
+        });
+      } catch (parseError) {
+        console.error('Error parsing response:', parseError);
+        throw new Error(errorMessage);
       }
-
-      const data = await response.json();
-      console.log('Generated bullets:', data.bulletPoints);
-      
-      if (!data.bulletPoints || !Array.isArray(data.bulletPoints) || data.bulletPoints.length === 0) {
-        throw new Error('No bullet points returned from API');
-      }
-      
-      // Store the raw bullet points directly
-      setBulletPoints(data.bulletPoints);
-      
-      // Also save to localStorage
-      localStorage.setItem("bulletPoints", JSON.stringify(data.bulletPoints));
-      
-      toast({
-        title: "Success!",
-        description: `Generated ${data.bulletPoints.length} bullet points`,
-      });
 
     } catch (error) {
       console.error('Error:', error);

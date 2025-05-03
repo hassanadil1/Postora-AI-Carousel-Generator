@@ -16,7 +16,10 @@ interface CarouselViewerProps {
   style: "professional" | "playful" | "minimalist";
   logo?: string;
   primaryColor: string;
-  secondaryColor: string;
+  backgroundColor?: string;
+  textColor?: string;
+  outputFormat?: "linkedin" | "twitter" | "instagram";
+  fontFamily?: string;
 }
 
 export function CarouselViewer({ 
@@ -24,15 +27,46 @@ export function CarouselViewer({
   style = "professional",
   logo,
   primaryColor,
-  secondaryColor,
+  backgroundColor = "#ffffff",
+  textColor = "#000000",
+  outputFormat = "linkedin",
+  fontFamily = "arial",
 }: CarouselViewerProps) {
   const [isMounted, setIsMounted] = useState(false);
   const [currentSlide, setCurrentSlide] = useState(1);
   const totalSlides = bulletPoints?.length || 0;
+  const [currentFormat, setCurrentFormat] = useState<"linkedin" | "twitter" | "instagram">(outputFormat);
+  const [currentFont, setCurrentFont] = useState(fontFamily);
 
   useEffect(() => {
     setIsMounted(true);
-  }, []);
+    
+    // Load the output format from localStorage if not provided
+    if (!outputFormat) {
+      const storedFormat = localStorage.getItem("outputFormat");
+      if (storedFormat === "linkedin" || storedFormat === "twitter" || storedFormat === "instagram") {
+        setCurrentFormat(storedFormat as "linkedin" | "twitter" | "instagram");
+      }
+    }
+
+    // Load the font family from localStorage if not provided
+    if (!fontFamily) {
+      const storedFont = localStorage.getItem("fontFamily");
+      if (storedFont) {
+        setCurrentFont(storedFont);
+      }
+    }
+  }, [outputFormat, fontFamily]);
+
+  // Keep currentFormat updated when the prop changes
+  useEffect(() => {
+    if (outputFormat) {
+      setCurrentFormat(outputFormat);
+    }
+    if (fontFamily) {
+      setCurrentFont(fontFamily);
+    }
+  }, [outputFormat, fontFamily]);
 
   const nextSlide = () => {
     setCurrentSlide((prev) => (prev === totalSlides ? 1 : prev + 1));
@@ -40,6 +74,30 @@ export function CarouselViewer({
 
   const prevSlide = () => {
     setCurrentSlide((prev) => (prev === 1 ? totalSlides : prev - 1));
+  };
+
+  // Get the aspect ratio based on the platform
+  const getAspectRatio = () => {
+    switch (currentFormat) {
+      case "twitter":
+        return "aspect-[16/9]"; // Twitter recommended: 1600x900
+      case "instagram":
+      case "linkedin":
+      default:
+        return "aspect-square"; // Instagram/LinkedIn recommended: 1080x1080
+    }
+  };
+
+  // Get the dimensions for export
+  const getExportDimensions = () => {
+    switch (currentFormat) {
+      case "twitter":
+        return { width: 1600, height: 900 };
+      case "instagram":
+      case "linkedin":
+      default:
+        return { width: 1080, height: 1080 };
+    }
   };
 
   const renderTemplate = () => {
@@ -53,7 +111,9 @@ export function CarouselViewer({
       totalSlides,
       logo,
       primaryColor,
-      secondaryColor,
+      backgroundColor,
+      textColor,
+      fontFamily: currentFont,
     };
 
     switch (style) {
@@ -75,14 +135,17 @@ export function CarouselViewer({
     if (!slideElement) return;
 
     try {
+      const dimensions = getExportDimensions();
       const canvas = await html2canvas(slideElement, {
         scale: 2,
         backgroundColor: null,
+        width: dimensions.width,
+        height: dimensions.height
       });
       
       const dataUrl = canvas.toDataURL("image/png");
       const link = document.createElement("a");
-      link.download = `slide-${currentSlide}.png`;
+      link.download = `slide-${currentSlide}-${currentFormat}.png`;
       link.href = dataUrl;
       link.click();
     } catch (error) {
@@ -99,6 +162,7 @@ export function CarouselViewer({
     try {
       const zip = new JSZip();
       const currentSlideBackup = currentSlide;
+      const dimensions = getExportDimensions();
 
       // Create a folder for the slides
       const slideFolder = zip.folder("slides");
@@ -113,12 +177,14 @@ export function CarouselViewer({
         const canvas = await html2canvas(slideElement, {
           scale: 2,
           backgroundColor: null,
+          width: dimensions.width,
+          height: dimensions.height
         });
         
         const dataUrl = canvas.toDataURL("image/png");
         const base64Data = dataUrl.split(",")[1];
         
-        slideFolder.file(`slide-${i}.png`, base64Data, { base64: true });
+        slideFolder.file(`slide-${i}-${currentFormat}.png`, base64Data, { base64: true });
       }
 
       // Restore current slide
@@ -126,7 +192,7 @@ export function CarouselViewer({
 
       // Generate and download zip
       const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, "carousel-slides.zip");
+      saveAs(content, `${currentFormat}-carousel-slides.zip`);
     } catch (error) {
       console.error("Error exporting all slides:", error);
     }
@@ -135,7 +201,7 @@ export function CarouselViewer({
   if (!isMounted) {
     return (
       <div className="flex flex-col items-center space-y-6">
-        <div className="w-full max-w-2xl aspect-[16/9] rounded-lg overflow-hidden border shadow-lg flex items-center justify-center">
+        <div className={`w-full max-w-2xl ${getAspectRatio()} rounded-lg overflow-hidden border shadow-lg flex items-center justify-center`}>
           <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       </div>
@@ -145,7 +211,7 @@ export function CarouselViewer({
   if (!bulletPoints || bulletPoints.length === 0) {
     return (
       <div className="flex flex-col items-center space-y-6">
-        <div className="w-full max-w-2xl aspect-[16/9] rounded-lg overflow-hidden border shadow-lg flex items-center justify-center bg-muted">
+        <div className={`w-full max-w-2xl ${getAspectRatio()} rounded-lg overflow-hidden border shadow-lg flex items-center justify-center bg-muted`}>
           <p className="text-muted-foreground">No content to display</p>
         </div>
       </div>
@@ -154,7 +220,7 @@ export function CarouselViewer({
 
   return (
     <div className="flex flex-col items-center space-y-6">
-      <div className="w-full max-w-2xl aspect-[16/9] rounded-lg overflow-hidden border shadow-lg">
+      <div className={`w-full max-w-2xl ${getAspectRatio()} rounded-lg overflow-hidden border shadow-lg`}>
         <div id="carousel-slide" className="w-full h-full">
           {renderTemplate()}
         </div>

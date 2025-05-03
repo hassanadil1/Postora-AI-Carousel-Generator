@@ -1,6 +1,8 @@
+"use client";
+
 import Link from "next/link";
 import { Button } from "./ui/button";
-import { SignedIn, SignedOut, UserButton } from "@clerk/nextjs";
+import { SignedIn, SignedOut, UserButton, useClerk } from "@clerk/nextjs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -8,8 +10,19 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Menu } from "lucide-react";
+import { clearUserData } from "@/lib/local-storage";
 
 export function Header() {
+  const { signOut } = useClerk();
+  
+  // Function to handle sign out
+  const handleSignOut = () => {
+    // Clear localStorage data when user signs out
+    clearUserData();
+    // Then sign out the user
+    signOut();
+  }
+
   return (
     <header className="border-b">
       <div className="container mx-auto px-4 h-16 flex items-center justify-between">
@@ -52,6 +65,9 @@ export function Header() {
                   }
                 }}
               />
+              <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                Sign Out
+              </Button>
             </div>
           </SignedIn>
         </nav>
@@ -59,7 +75,12 @@ export function Header() {
         {/* Mobile Navigation */}
         <div className="md:hidden flex items-center gap-4">
           <SignedIn>
-            <UserButton afterSignOutUrl="/" />
+            <UserButton 
+              afterSignOutUrl="/"
+            />
+            <Button variant="ghost" size="sm" onClick={handleSignOut}>
+              Sign Out
+            </Button>
           </SignedIn>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>

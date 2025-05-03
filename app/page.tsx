@@ -90,7 +90,7 @@ export default function Home() {
               <Button type="submit">Subscribe</Button>
             </form>
           </div>
-        </div>
+    </div>
       </section>
     </main>
   );

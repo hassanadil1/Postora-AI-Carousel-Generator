@@ -8,7 +8,11 @@ interface PlayfulTemplateProps {
   totalSlides: number;
   logo?: string;
   primaryColor: string;
-  secondaryColor: string;
+  backgroundColor: string;
+  textColor?: string;
+  fontFamily?: string;
+  showGradientBackground?: boolean;
+  gradientBackground?: string;
 }
 
 export function PlayfulTemplate({
@@ -17,10 +21,14 @@ export function PlayfulTemplate({
   totalSlides,
   logo,
   primaryColor = "#6d28d9",
-  secondaryColor = "#a78bfa",
+  backgroundColor = "#ffffff",
+  textColor = "#4b5563",
+  fontFamily = "arial",
+  showGradientBackground = false,
+  gradientBackground,
 }: PlayfulTemplateProps) {
   // Extract heading and details
-  const [heading, details] = bulletPoint.includes(':') 
+  const [heading, details] = bulletPoint?.includes(':') 
     ? bulletPoint.split(':', 2)
     : [bulletPoint, ''];
 
@@ -28,9 +36,10 @@ export function PlayfulTemplate({
     <div 
       className="w-full h-full flex flex-col justify-between p-10 rounded-2xl"
       style={{ 
-        background: `linear-gradient(135deg, ${primaryColor}20, ${secondaryColor}30)`,
+        background: showGradientBackground && gradientBackground ? gradientBackground : backgroundColor,
         borderColor: primaryColor,
-        borderWidth: '4px'
+        borderWidth: showGradientBackground ? '0' : '4px',
+        fontFamily: `var(--font-${fontFamily}, ${fontFamily}, sans-serif)`
       }}
     >
       {/* Header */}
@@ -45,34 +54,36 @@ export function PlayfulTemplate({
             />
           </div>
         )}
-        <div className="flex space-x-2">
-          {Array.from({ length: totalSlides }).map((_, i) => (
-            <div 
-              key={i}
-              className={cn(
-                "w-3 h-3 rounded-full",
-                i === slideNumber - 1 
-                  ? "opacity-100" 
-                  : "opacity-40"
-              )}
-              style={{ backgroundColor: primaryColor }}
-            />
-          ))}
-        </div>
+        {!showGradientBackground && (
+          <div className="flex space-x-2">
+            {Array.from({ length: totalSlides }).map((_, i) => (
+              <div 
+                key={i}
+                className={cn(
+                  "w-3 h-3 rounded-full",
+                  i === slideNumber - 1 
+                    ? "opacity-100" 
+                    : "opacity-40"
+                )}
+                style={{ backgroundColor: primaryColor }}
+              />
+            ))}
+          </div>
+        )}
       </div>
 
-      {/* Content */}
-      <div className="flex-grow flex flex-col justify-center my-6 p-6 bg-white/80 rounded-xl backdrop-blur-sm">
+      {/* Content - Better centered with improved text sizing */}
+      <div className="flex-grow flex flex-col justify-center items-center my-6 text-center">
         <h2 
-          className="text-3xl font-bold mb-4"
+          className="text-4xl font-bold mb-6 leading-tight"
           style={{ color: primaryColor }}
         >
-          {heading.trim()}
+          {heading?.trim() || "No content"}
         </h2>
         {details && (
           <p 
-            className="text-xl"
-            style={{ color: '#4b5563' }}
+            className="text-2xl leading-relaxed max-w-2xl"
+            style={{ color: textColor }}
           >
             {details.trim()}
           </p>
@@ -80,13 +91,11 @@ export function PlayfulTemplate({
       </div>
 
       {/* Footer */}
-      <div className="flex justify-center items-center">
-        <span 
-          className="text-sm font-medium px-4 py-1 rounded-full"
-          style={{ backgroundColor: primaryColor, color: 'white' }}
-        >
-          {slideNumber} / {totalSlides}
-        </span>
+      <div className="flex justify-center">
+        <div 
+          className="h-1 w-20 rounded-full" 
+          style={{ backgroundColor: primaryColor }}
+        />
       </div>
     </div>
   );

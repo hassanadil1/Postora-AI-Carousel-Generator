@@ -15,6 +15,8 @@ import {
 } from "@/components/ui/collapsible";
 import { useGeneration } from "@/lib/contexts/generation-context";
 import { useToast } from "@/hooks/use-toast";
+import { FontSelector } from "@/components/font-selector";
+import { storeData, getData, removeData, STORAGE_KEYS } from "@/lib/local-storage";
 
 export function OutputCustomization() {
   const router = useRouter();
@@ -23,9 +25,11 @@ export function OutputCustomization() {
   const [isGenerating, setIsGenerating] = useState(false);
   const { bulletPoints } = useGeneration();
   const [primaryColor, setPrimaryColor] = useState("#0f172a");
-  const [secondaryColor, setSecondaryColor] = useState("#64748b");
+  const [backgroundColor, setBackgroundColor] = useState("#ffffff");
+  const [textColor, setTextColor] = useState("#000000");
   const [outputFormat, setOutputFormat] = useState("linkedin");
   const [stylePreset, setStylePreset] = useState("professional");
+  const [fontFamily, setFontFamily] = useState("arial");
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -34,7 +38,7 @@ export function OutputCustomization() {
       reader.onload = (e) => {
         const result = e.target?.result as string;
         setLogoPreview(result);
-        localStorage.setItem("logo", result);
+        storeData(STORAGE_KEYS.LOGO, result);
       };
       reader.readAsDataURL(file);
     }
@@ -48,7 +52,7 @@ export function OutputCustomization() {
       reader.onload = (e) => {
         const result = e.target?.result as string;
         setLogoPreview(result);
-        localStorage.setItem("logo", result);
+        storeData(STORAGE_KEYS.LOGO, result);
       };
       reader.readAsDataURL(file);
     }
@@ -56,7 +60,7 @@ export function OutputCustomization() {
 
   const removeLogo = () => {
     setLogoPreview(null);
-    localStorage.removeItem("logo");
+    removeData(STORAGE_KEYS.LOGO);
   };
 
   const handleGenerate = async () => {
@@ -71,26 +75,13 @@ export function OutputCustomization() {
 
     setIsGenerating(true);
     try {
-      // Save to localStorage for now
-      localStorage.setItem("bulletPoints", JSON.stringify(bulletPoints));
-      localStorage.setItem("style", stylePreset);
-      localStorage.setItem("primaryColor", primaryColor);
-      localStorage.setItem("secondaryColor", secondaryColor);
-      
-      // In a full implementation, save to database
-      // const response = await fetch('/api/generations/save', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({
-      //     bulletPoints,
-      //     style: stylePreset,
-      //     primaryColor,
-      //     secondaryColor,
-      //     logo: logoPreview,
-      //     outputFormat
-      //   })
-      // });
-      // const data = await response.json();
+      // Save to localStorage
+      storeData(STORAGE_KEYS.STYLE, stylePreset);
+      storeData(STORAGE_KEYS.PRIMARY_COLOR, primaryColor);
+      storeData(STORAGE_KEYS.BACKGROUND_COLOR, backgroundColor);
+      storeData(STORAGE_KEYS.TEXT_COLOR, textColor);
+      storeData(STORAGE_KEYS.OUTPUT_FORMAT, outputFormat);
+      storeData(STORAGE_KEYS.FONT_FAMILY, fontFamily);
       
       // Navigate to output page
       router.push('/output');
@@ -108,17 +99,21 @@ export function OutputCustomization() {
 
   // Load saved preferences
   useEffect(() => {
-    const storedPrimaryColor = localStorage.getItem("primaryColor");
-    const storedSecondaryColor = localStorage.getItem("secondaryColor");
-    const storedOutputFormat = localStorage.getItem("outputFormat");
-    const storedStylePreset = localStorage.getItem("style");
-    const storedLogo = localStorage.getItem("logo");
+    const storedPrimaryColor = getData(STORAGE_KEYS.PRIMARY_COLOR);
+    const storedBackgroundColor = getData(STORAGE_KEYS.BACKGROUND_COLOR);
+    const storedTextColor = getData(STORAGE_KEYS.TEXT_COLOR);
+    const storedOutputFormat = getData(STORAGE_KEYS.OUTPUT_FORMAT);
+    const storedStylePreset = getData(STORAGE_KEYS.STYLE);
+    const storedLogo = getData(STORAGE_KEYS.LOGO);
+    const storedFontFamily = getData(STORAGE_KEYS.FONT_FAMILY);
     
     if (storedPrimaryColor) setPrimaryColor(storedPrimaryColor);
-    if (storedSecondaryColor) setSecondaryColor(storedSecondaryColor);
+    if (storedBackgroundColor) setBackgroundColor(storedBackgroundColor);
+    if (storedTextColor) setTextColor(storedTextColor);
     if (storedOutputFormat) setOutputFormat(storedOutputFormat);
     if (storedStylePreset) setStylePreset(storedStylePreset);
     if (storedLogo) setLogoPreview(storedLogo);
+    if (storedFontFamily) setFontFamily(storedFontFamily);
   }, []);
 
   return (
@@ -143,6 +138,7 @@ export function OutputCustomization() {
               >
                 <Linkedin className="mb-2 h-6 w-6" />
                 <span>LinkedIn Carousel</span>
+                <span className="text-xs text-muted-foreground mt-1">1080×1080 px</span>
               </Label>
             </div>
             
@@ -154,6 +150,7 @@ export function OutputCustomization() {
               >
                 <Twitter className="mb-2 h-6 w-6" />
                 <span>Twitter Thread</span>
+                <span className="text-xs text-muted-foreground mt-1">1600×900 px</span>
               </Label>
             </div>
 
@@ -165,6 +162,7 @@ export function OutputCustomization() {
               >
                 <Instagram className="mb-2 h-6 w-6" />
                 <span>Instagram Posts</span>
+                <span className="text-xs text-muted-foreground mt-1">1080×1080 px</span>
               </Label>
             </div>
           </RadioGroup>
@@ -254,28 +252,50 @@ export function OutputCustomization() {
             <Button variant="outline" className="w-full">Branding Options</Button>
           </CollapsibleTrigger>
           <CollapsibleContent className="space-y-4 pt-4">
-            <div className="flex flex-col md:flex-row gap-4">
-              <div className="w-full md:w-1/2">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="w-full">
                 <ColorPicker 
                   label="Primary Color" 
                   value={primaryColor}
                   onChange={(value) => {
                     setPrimaryColor(value);
-                    localStorage.setItem("primaryColor", value);
+                    storeData(STORAGE_KEYS.PRIMARY_COLOR, value);
                   }}
                 />
               </div>
-              <div className="w-full md:w-1/2">
+              <div className="w-full">
                 <ColorPicker 
-                  label="Secondary Color" 
-                  value={secondaryColor}
+                  label="Background Color" 
+                  value={backgroundColor}
                   onChange={(value) => {
-                    setSecondaryColor(value);
-                    localStorage.setItem("secondaryColor", value);
+                    setBackgroundColor(value);
+                    storeData(STORAGE_KEYS.BACKGROUND_COLOR, value);
+                  }}
+                />
+              </div>
+              <div className="w-full">
+                <ColorPicker 
+                  label="Text Color" 
+                  value={textColor}
+                  onChange={(value) => {
+                    setTextColor(value);
+                    storeData(STORAGE_KEYS.TEXT_COLOR, value);
                   }}
                 />
               </div>
             </div>
+            
+            {/* Font Selector */}
+            <div className="w-full">
+              <FontSelector
+                value={fontFamily}
+                onChange={(value) => {
+                  setFontFamily(value);
+                  storeData(STORAGE_KEYS.FONT_FAMILY, value);
+                }}
+              />
+            </div>
+            
             <div className="space-y-2">
               <label className="text-sm font-medium">Upload Logo</label>
               <div
@@ -334,8 +354,8 @@ export function OutputCustomization() {
         {bulletPoints && bulletPoints.length > 0 && (
           <div className="p-4 rounded-lg border bg-muted/20">
             <p className="text-sm text-muted-foreground mb-2">Preview (First Slide)</p>
-            <div className="aspect-[16/9] bg-white rounded-md overflow-hidden shadow-sm">
-              <div className="w-full h-full p-4 flex flex-col">
+            <div className={`aspect-${outputFormat === 'twitter' ? '[16/9]' : 'square'} rounded-md overflow-hidden shadow-sm`} style={{ backgroundColor }}>
+              <div className="w-full h-full p-4 flex flex-col" style={{ fontFamily: `var(--font-${fontFamily}, ${fontFamily}, sans-serif)` }}>
                 <div className="flex justify-between items-center">
                   {logoPreview && (
                     <div className="w-8 h-8 relative">
@@ -354,11 +374,14 @@ export function OutputCustomization() {
                 </div>
                 <div className="flex-grow flex flex-col justify-center">
                   <h3 
-                    className="text-lg font-bold mb-1"
+                    className="text-xl font-bold mb-2"
                     style={{ color: primaryColor }}
                   >
                     {bulletPoints[0]?.split(':')[0] || bulletPoints[0]?.substring(0, 40)}
                   </h3>
+                  <p style={{ color: textColor }}>
+                    {bulletPoints[0]?.split(':')[1] || ''}
+                  </p>
                 </div>
               </div>
             </div>

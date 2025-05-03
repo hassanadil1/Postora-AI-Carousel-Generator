@@ -8,7 +8,11 @@ interface MinimalistTemplateProps {
   totalSlides: number;
   logo?: string;
   primaryColor: string;
-  secondaryColor: string;
+  backgroundColor: string;
+  textColor?: string;
+  fontFamily?: string;
+  showGradientBackground?: boolean;
+  gradientBackground?: string;
 }
 
 export function MinimalistTemplate({
@@ -17,21 +21,37 @@ export function MinimalistTemplate({
   totalSlides,
   logo,
   primaryColor = "#171717",
-  secondaryColor = "#737373",
+  backgroundColor = "#ffffff",
+  textColor = "#171717",
+  fontFamily = "arial",
+  showGradientBackground = false,
+  gradientBackground,
 }: MinimalistTemplateProps) {
-  // Extract heading and details
-  const [heading, details] = bulletPoint.includes(':') 
-    ? bulletPoint.split(':', 2)
-    : [bulletPoint, ''];
+  let heading = "";
+  let details = "";
+  
+  if (bulletPoint && typeof bulletPoint === 'string') {
+    if (bulletPoint.includes(':')) {
+      const parts = bulletPoint.split(':', 2);
+      heading = parts[0]?.trim() || "";
+      details = parts[1]?.trim() || "";
+    } else {
+      heading = bulletPoint.trim();
+    }
+  }
 
   return (
     <div 
-      className="w-full h-full flex flex-col justify-between p-12 bg-white"
+      className="w-full h-full flex flex-col p-10"
+      style={{ 
+        background: showGradientBackground && gradientBackground ? gradientBackground : backgroundColor,
+        fontFamily: `var(--font-${fontFamily}, ${fontFamily}, sans-serif)`
+      }}
     >
-      {/* Header */}
-      <div className="flex justify-end">
-        {logo && (
-          <div className="w-10 h-10 relative">
+      {/* Minimal Header */}
+      {logo && (
+        <div className="flex justify-start mb-8">
+          <div className="w-12 h-12 relative">
             <Image
               src={logo}
               alt="Company logo"
@@ -39,37 +59,31 @@ export function MinimalistTemplate({
               className="object-contain"
             />
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Content */}
-      <div className="flex-grow flex flex-col justify-center">
+      {/* Centered Content */}
+      <div className="flex-grow flex flex-col justify-center items-center text-center max-w-2xl mx-auto">
         <h2 
           className="text-4xl font-light mb-8 leading-tight"
           style={{ color: primaryColor }}
         >
-          {heading.trim()}
+          {heading || "No content"}
         </h2>
         {details && (
           <p 
-            className="text-xl font-light"
-            style={{ color: secondaryColor }}
+            className="text-2xl font-light leading-relaxed"
+            style={{ color: textColor }}
           >
-            {details.trim()}
+            {details}
           </p>
         )}
       </div>
 
-      {/* Footer */}
-      <div className="flex justify-between items-center">
-        <span 
-          className="text-xs"
-          style={{ color: secondaryColor }}
-        >
-          {slideNumber}/{totalSlides}
-        </span>
+      {/* Minimal Footer - Without slide counter */}
+      <div className="flex justify-start items-center mt-8">
         <div 
-          className="h-px w-12"
+          className="w-12 h-0.5"
           style={{ backgroundColor: primaryColor }}
         />
       </div>
