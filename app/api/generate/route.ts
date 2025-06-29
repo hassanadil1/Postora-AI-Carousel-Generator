@@ -74,10 +74,12 @@ export async function POST(request: Request) {
             The bullet point details should be a single sentence that provides more information about the bullet point.
             The bullet point heading and details should be separated by a colon.
             The bullet points should be separated by a new line.
-            Your output should contain nothing but bullet points.\n\n${body.content}`
+            Your output should contain nothing but bullet points.
+            Keep each bullet point short and concise.
+            \n\n${body.content}`
           }
         ],
-        model: "llama-3.1-8b-instant",
+        model: "gemma2-9b-it",
         temperature: 0.7,
         max_tokens: 1024
       });
@@ -89,7 +91,18 @@ export async function POST(request: Request) {
       const bulletPoints = response
         .split('\n')
         .filter((line: string) => line.trim())
-        .map((point: string) => point.replace(/^[•\-\*]\s*/, '').trim())
+        .map((point: string) => {
+          // Remove bullet point markers
+          let cleanPoint = point.replace(/^[•\-\*]\s*/, '').trim();
+          
+          // Remove markdown bold formatting (**text** becomes text)
+          cleanPoint = cleanPoint.replace(/\*\*(.*?)\*\*/g, '$1');
+          
+          // Remove any remaining asterisks at the beginning
+          cleanPoint = cleanPoint.replace(/^\*+\s*/, '');
+          
+          return cleanPoint;
+        })
         .filter((point: string) => point.length > 0);
 
       console.log("Formatted bullet points:", bulletPoints);

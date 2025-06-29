@@ -16,6 +16,9 @@ export const STORAGE_KEYS = {
   OUTPUT_FORMAT: "outputFormat",
   LOGO: "logo",
   FONT_FAMILY: "fontFamily",
+  BACKGROUND_IMAGE: "backgroundImage",
+  BACKGROUND_IMAGE_OPACITY: "backgroundImageOpacity",
+  TEXT_ALIGN: "textAlign",
 };
 
 /**

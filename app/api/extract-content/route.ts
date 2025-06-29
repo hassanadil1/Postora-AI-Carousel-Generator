@@ -2,6 +2,36 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as cheerio from 'cheerio';
 
+// Function to clean and structure the extracted content
+function cleanAndStructureContent(rawContent: string, title: string = ''): string {
+  let content = rawContent;
+  
+  // Only do light cleaning - remove dates and author info from the beginning
+  content = content
+    // Remove timestamps and dates (but only common patterns)
+    .replace(/^.*(?:January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},?\s+\d{4}.*$/gmi, '')
+    .replace(/^\s*\d{1,2}\/\d{1,2}\/\d{2,4}\s*/gm, '')
+    .replace(/^\s*\d{4}-\d{2}-\d{2}\s*/gm, '')
+    
+    // Remove author bylines (only at the beginning)
+    .replace(/^\s*(?:By|Author|Written by|Posted by)\s+[A-Z][a-z]+\s*[A-Z]*[a-z]*\s*/gmi, '')
+    
+    // Remove excessive whitespace but preserve paragraph structure
+    .replace(/\n\s*\n\s*\n+/g, '\n\n')
+    .replace(/^\s+/gm, '')
+    .trim();
+
+  // Combine title and content
+  let finalContent = '';
+  if (title) {
+    finalContent += `# ${title}\n\n`;
+  }
+  
+  finalContent += content;
+  
+  return finalContent;
+}
+
 export async function POST(request: NextRequest) {
   try {
     const { url } = await request.json();
@@ -30,49 +60,134 @@ export async function POST(request: NextRequest) {
       title = $('title').text().trim();
     }
     
-    // Extract content - looking for the main article content
+    // Extract content - looking for the main article content with improved selectors
     let articleContent = '';
     
-    // Try different common article selectors
+    // Enhanced selectors that are more likely to contain actual blog content
     const selectors = [
-      'article', 
+      'article .entry-content',
+      'article .post-content', 
+      '.entry-content',
+      '.post-content',
+      '.article-content',
+      '.blog-content',
+      '.content-area',
+      'article',
       '.article', 
-      '.post-content', 
-      '.entry-content', 
-      '.blog-post', 
+      '.post',
+      '.blog-post',
+      '.single-post',
+      'main article',
+      'main .content',
+      '[role="main"]',
       'main', 
+      '#main-content',
       '#content',
-      '.content'
+      '.content',
+      '#post-content',
+      '.post-body'
     ];
     
     for (const selector of selectors) {
       const element = $(selector);
       if (element.length > 0) {
-        // Remove unnecessary elements that usually aren't part of the main content
-        element.find('script, style, nav, footer, header, aside, .comments, .sidebar, .advertisement').remove();
+        console.log(`Found content with selector: ${selector}`);
         
-        // Get the text content
-        articleContent = element.text().trim();
-        break;
+        // Remove unnecessary elements but keep the structure
+        element.find('script, style, nav, footer, header, aside, .comments, .sidebar, .advertisement, .social-share, .author-bio, .related-posts, .tags, .categories, .share-buttons').remove();
+        
+        // Extract content while preserving structure (including bullet points)
+        let extractedContent = '';
+        
+        // Process each child element to preserve structure
+        element.children().each((index, child) => {
+          const $child = $(child);
+          const tagName = child.tagName?.toLowerCase();
+          
+          // Handle different content types
+          if (tagName === 'p' || tagName === 'div') {
+            const text = $child.text().trim();
+            if (text.length > 10) {
+              extractedContent += text + '\n\n';
+            }
+          } else if (tagName === 'ul' || tagName === 'ol') {
+            // Extract list items as bullet points
+            $child.find('li').each((i, li) => {
+              const listText = $(li).text().trim();
+              if (listText.length > 5) {
+                extractedContent += `• ${listText}\n`;
+              }
+            });
+            extractedContent += '\n';
+          } else if (['h1', 'h2', 'h3', 'h4', 'h5', 'h6'].includes(tagName)) {
+            const headingText = $child.text().trim();
+            if (headingText.length > 3 && headingText.toLowerCase() !== title.toLowerCase()) {
+              extractedContent += `\n## ${headingText}\n\n`;
+            }
+          } else if (tagName === 'blockquote') {
+            const quoteText = $child.text().trim();
+            if (quoteText.length > 10) {
+              extractedContent += `> ${quoteText}\n\n`;
+            }
+          } else {
+            // For other elements, just extract text
+            const text = $child.text().trim();
+            if (text.length > 10) {
+              extractedContent += text + '\n\n';
+            }
+          }
+        });
+        
+        if (extractedContent.trim().length > 100) {
+          articleContent = extractedContent.trim();
+          console.log(`Successfully extracted ${articleContent.length} characters`);
+          break;
+        }
       }
     }
     
-    // If no content was found with the selectors, try to get content from the body
-    if (!articleContent) {
-      $('body').find('script, style, nav, footer, header, aside, .comments, .sidebar, .advertisement').remove();
+    // Fallback: if no content found with structured extraction, try simpler approach
+    if (!articleContent || articleContent.length < 100) {
+      console.log('Trying fallback extraction method');
+      
+      // Try to find the largest text block
+      const potentialContainers = $('div, article, section, main').filter((i, el) => {
+        const text = $(el).text().trim();
+        return text.length > 500 && !$(el).find('nav, footer, header, aside').length;
+      });
+      
+             if (potentialContainers.length > 0) {
+         let largestContainer = potentialContainers[0];
+         let maxLength = $(largestContainer).text().length;
+         
+         potentialContainers.each((i, el) => {
+           const currentLength = $(el).text().length;
+           if (currentLength > maxLength) {
+             maxLength = currentLength;
+             largestContainer = el;
+           }
+         });
+        
+        $(largestContainer).find('script, style, nav, footer, header, aside, .comments, .sidebar, .advertisement').remove();
+        articleContent = $(largestContainer).text().trim();
+      }
+    }
+    
+    // Final fallback
+    if (!articleContent || articleContent.length < 50) {
+      console.log('Using body text as final fallback');
+      $('body').find('script, style, nav, footer, header, aside, .comments, .sidebar, .advertisement, .social-share, .author-bio, .related-posts').remove();
       articleContent = $('body').text().trim();
     }
     
-    // Clean up the content
-    articleContent = articleContent
-      .replace(/\s+/g, ' ')
-      .replace(/\n+/g, '\n\n')
-      .trim();
+    // Clean and structure the content
+    const cleanedContent = cleanAndStructureContent(articleContent, title);
     
-    // Combine title and content
-    let content = title ? `${title}\n\n${articleContent}` : articleContent;
+    console.log('Original content length:', articleContent.length);
+    console.log('Cleaned content length:', cleanedContent.length);
+    console.log('Content preview:', cleanedContent.substring(0, 200) + '...');
     
-    return NextResponse.json({ content });
+    return NextResponse.json({ content: cleanedContent });
   } catch (error) {
     console.error('Error processing URL:', error);
     return NextResponse.json({ error: 'Failed to process URL' }, { status: 500 });

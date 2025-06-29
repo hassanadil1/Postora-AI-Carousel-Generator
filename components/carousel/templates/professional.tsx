@@ -11,8 +11,8 @@ interface ProfessionalTemplateProps {
   backgroundColor: string;
   textColor?: string;
   fontFamily?: string;
-  showGradientBackground?: boolean;
-  gradientBackground?: string;
+  backgroundImage?: string;
+  backgroundImageOpacity?: number;
 }
 
 export function ProfessionalTemplate({
@@ -24,8 +24,8 @@ export function ProfessionalTemplate({
   backgroundColor = "#ffffff",
   textColor = "#000000",
   fontFamily = "arial",
-  showGradientBackground = false,
-  gradientBackground,
+  backgroundImage,
+  backgroundImageOpacity = 0.3,
 }: ProfessionalTemplateProps) {
   let heading = "";
   let details = "";
@@ -40,58 +40,72 @@ export function ProfessionalTemplate({
     }
   }
 
-  // Calculate a slightly darker color for the slide counter
-  const slideCounterColor = "#64748b"; // Default secondary color for slide counter
-
   return (
     <div 
-      className="w-full h-full flex flex-col justify-between p-10"
+      className="w-full h-full flex flex-col justify-between p-8 relative"
       style={{ 
-        background: showGradientBackground && gradientBackground ? gradientBackground : backgroundColor,
+        backgroundColor,
         '--primary-color': primaryColor,
         '--text-color': textColor,
         fontFamily: `var(--font-${fontFamily}, ${fontFamily}, sans-serif)`
       } as React.CSSProperties}
     >
-      {/* Header */}
-      <div className="w-full flex justify-between items-center">
-        {logo && (
-          <div className="w-16 h-16 relative">
-            <Image
-              src={logo}
-              alt="Company logo"
-              fill
-              className="object-contain"
-            />
-          </div>
-        )}
+      {/* Background Image */}
+      {backgroundImage && (
         <div 
-          className="h-1 flex-grow ml-4 rounded-full" 
-          style={{ backgroundColor: primaryColor }}
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `url(${backgroundImage})`,
+            opacity: backgroundImageOpacity
+          }}
         />
-      </div>
+      )}
 
-      {/* Content - Centered both vertically and horizontally */}
-      <div className="flex-grow flex flex-col justify-center my-4 text-center max-w-4xl mx-auto">
-        <h2 
-          className="text-4xl font-bold mb-6 leading-tight"
-          style={{ color: primaryColor }}
-        >
-          {heading || "No content"}
-        </h2>
-        {details && (
-          <p 
-            className="text-2xl leading-relaxed"
-            style={{ color: textColor }}
+      {/* Content Container */}
+      <div className="relative z-10 w-full h-full flex flex-col justify-between">
+        {/* Header */}
+        <div className="w-full flex justify-between items-center mb-4">
+          {logo && (
+            <div className="w-12 h-12 relative">
+              <Image
+                src={logo}
+                alt="Company logo"
+                fill
+                className="object-contain"
+              />
+            </div>
+          )}
+          <div 
+            className="h-1 flex-grow ml-4 rounded-full" 
+            style={{ backgroundColor: primaryColor }}
+          />
+        </div>
+
+        {/* Content - Perfectly Centered */}
+        <div className="flex-grow flex flex-col items-center justify-center text-center px-4">
+          <h2 
+            className="text-3xl md:text-4xl font-bold mb-4 leading-tight max-w-full"
+            style={{ color: primaryColor }}
           >
-            {details}
-          </p>
-        )}
-      </div>
+            {heading || "No content"}
+          </h2>
+          {details && (
+            <p 
+              className="text-lg md:text-xl leading-relaxed max-w-4xl"
+              style={{ color: textColor }}
+            >
+              {details}
+            </p>
+          )}
+        </div>
 
-      {/* Footer - Without slide counter */}
-      <div className="flex justify-end items-center">
-        <div className="h-0.5 w-20 rounded-full" style={{ backgroundColor: primaryColor }} />
+        {/* Footer */}
+        <div className="flex justify-between items-center mt-4">
+          <div className="text-sm text-gray-500">
+            {slideNumber} / {totalSlides}
+          </div>
+          <div className="h-0.5 w-16 rounded-full" style={{ backgroundColor: primaryColor }} />
+        </div>
       </div>
     </div>
   );

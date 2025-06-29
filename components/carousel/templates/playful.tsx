@@ -11,8 +11,8 @@ interface PlayfulTemplateProps {
   backgroundColor: string;
   textColor?: string;
   fontFamily?: string;
-  showGradientBackground?: boolean;
-  gradientBackground?: string;
+  backgroundImage?: string;
+  backgroundImageOpacity?: number;
 }
 
 export function PlayfulTemplate({
@@ -24,8 +24,8 @@ export function PlayfulTemplate({
   backgroundColor = "#ffffff",
   textColor = "#4b5563",
   fontFamily = "arial",
-  showGradientBackground = false,
-  gradientBackground,
+  backgroundImage,
+  backgroundImageOpacity = 0.3,
 }: PlayfulTemplateProps) {
   // Extract heading and details
   const [heading, details] = bulletPoint?.includes(':') 
@@ -34,27 +34,39 @@ export function PlayfulTemplate({
 
   return (
     <div 
-      className="w-full h-full flex flex-col justify-between p-10 rounded-2xl"
+      className="w-full h-full flex flex-col justify-between p-8 rounded-2xl relative"
       style={{ 
-        background: showGradientBackground && gradientBackground ? gradientBackground : backgroundColor,
+        backgroundColor,
         borderColor: primaryColor,
-        borderWidth: showGradientBackground ? '0' : '4px',
+        borderWidth: '3px',
         fontFamily: `var(--font-${fontFamily}, ${fontFamily}, sans-serif)`
       }}
     >
-      {/* Header */}
-      <div className="flex justify-between items-center">
-        {logo && (
-          <div className="w-16 h-16 relative">
-            <Image
-              src={logo}
-              alt="Company logo"
-              fill
-              className="object-contain"
-            />
-          </div>
-        )}
-        {!showGradientBackground && (
+      {/* Background Image */}
+      {backgroundImage && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center rounded-2xl"
+          style={{
+            backgroundImage: `url(${backgroundImage})`,
+            opacity: backgroundImageOpacity
+          }}
+        />
+      )}
+
+      {/* Content Container */}
+      <div className="relative z-10 w-full h-full flex flex-col justify-between">
+        {/* Header */}
+        <div className="flex justify-between items-center mb-4">
+          {logo && (
+            <div className="w-12 h-12 relative">
+              <Image
+                src={logo}
+                alt="Company logo"
+                fill
+                className="object-contain"
+              />
+            </div>
+          )}
           <div className="flex space-x-2">
             {Array.from({ length: totalSlides }).map((_, i) => (
               <div 
@@ -69,33 +81,36 @@ export function PlayfulTemplate({
               />
             ))}
           </div>
-        )}
-      </div>
+        </div>
 
-      {/* Content - Better centered with improved text sizing */}
-      <div className="flex-grow flex flex-col justify-center items-center my-6 text-center">
-        <h2 
-          className="text-4xl font-bold mb-6 leading-tight"
-          style={{ color: primaryColor }}
-        >
-          {heading?.trim() || "No content"}
-        </h2>
-        {details && (
-          <p 
-            className="text-2xl leading-relaxed max-w-2xl"
-            style={{ color: textColor }}
+        {/* Content - Perfectly Centered */}
+        <div className="flex-grow flex flex-col justify-center items-center text-center px-4">
+          <h2 
+            className="text-3xl md:text-4xl font-bold mb-4 leading-tight max-w-full"
+            style={{ color: primaryColor }}
           >
-            {details.trim()}
-          </p>
-        )}
-      </div>
+            {heading?.trim() || "No content"}
+          </h2>
+          {details && (
+            <p 
+              className="text-lg md:text-xl leading-relaxed max-w-4xl"
+              style={{ color: textColor }}
+            >
+              {details.trim()}
+            </p>
+          )}
+        </div>
 
-      {/* Footer */}
-      <div className="flex justify-center">
-        <div 
-          className="h-1 w-20 rounded-full" 
-          style={{ backgroundColor: primaryColor }}
-        />
+        {/* Footer */}
+        <div className="flex justify-between items-center mt-4">
+          <div className="text-sm text-gray-500">
+            {slideNumber} / {totalSlides}
+          </div>
+          <div 
+            className="h-1 w-16 rounded-full" 
+            style={{ backgroundColor: primaryColor }}
+          />
+        </div>
       </div>
     </div>
   );

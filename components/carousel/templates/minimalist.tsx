@@ -11,8 +11,8 @@ interface MinimalistTemplateProps {
   backgroundColor: string;
   textColor?: string;
   fontFamily?: string;
-  showGradientBackground?: boolean;
-  gradientBackground?: string;
+  backgroundImage?: string;
+  backgroundImageOpacity?: number;
 }
 
 export function MinimalistTemplate({
@@ -24,8 +24,8 @@ export function MinimalistTemplate({
   backgroundColor = "#ffffff",
   textColor = "#171717",
   fontFamily = "arial",
-  showGradientBackground = false,
-  gradientBackground,
+  backgroundImage,
+  backgroundImageOpacity = 0.3,
 }: MinimalistTemplateProps) {
   let heading = "";
   let details = "";
@@ -42,50 +42,71 @@ export function MinimalistTemplate({
 
   return (
     <div 
-      className="w-full h-full flex flex-col p-10"
+      className="w-full h-full flex flex-col p-8 relative"
       style={{ 
-        background: showGradientBackground && gradientBackground ? gradientBackground : backgroundColor,
+        backgroundColor,
         fontFamily: `var(--font-${fontFamily}, ${fontFamily}, sans-serif)`
       }}
     >
-      {/* Minimal Header */}
-      {logo && (
-        <div className="flex justify-start mb-8">
-          <div className="w-12 h-12 relative">
-            <Image
-              src={logo}
-              alt="Company logo"
-              fill
-              className="object-contain"
-            />
-          </div>
-        </div>
+      {/* Background Image */}
+      {backgroundImage && (
+        <div 
+          className="absolute inset-0 bg-cover bg-center"
+          style={{
+            backgroundImage: `url(${backgroundImage})`,
+            opacity: backgroundImageOpacity
+          }}
+        />
       )}
 
-      {/* Centered Content */}
-      <div className="flex-grow flex flex-col justify-center items-center text-center max-w-2xl mx-auto">
-        <h2 
-          className="text-4xl font-light mb-8 leading-tight"
-          style={{ color: primaryColor }}
-        >
-          {heading || "No content"}
-        </h2>
-        {details && (
-          <p 
-            className="text-2xl font-light leading-relaxed"
-            style={{ color: textColor }}
-          >
-            {details}
-          </p>
-        )}
-      </div>
+      {/* Content Container */}
+      <div className="relative z-10 w-full h-full flex flex-col justify-between">
+        {/* Minimal Header */}
+        <div className="flex justify-between items-center mb-4">
+          {logo && (
+            <div className="w-10 h-10 relative">
+              <Image
+                src={logo}
+                alt="Company logo"
+                fill
+                className="object-contain"
+              />
+            </div>
+          )}
+          <div 
+            className="w-12 h-0.5"
+            style={{ backgroundColor: primaryColor }}
+          />
+        </div>
 
-      {/* Minimal Footer - Without slide counter */}
-      <div className="flex justify-start items-center mt-8">
-        <div 
-          className="w-12 h-0.5"
-          style={{ backgroundColor: primaryColor }}
-        />
+        {/* Perfectly Centered Content */}
+        <div className="flex-grow flex flex-col justify-center items-center text-center px-4">
+          <h2 
+            className="text-3xl md:text-4xl font-light mb-4 leading-tight max-w-full"
+            style={{ color: primaryColor }}
+          >
+            {heading || "No content"}
+          </h2>
+          {details && (
+            <p 
+              className="text-lg md:text-xl font-light leading-relaxed max-w-4xl"
+              style={{ color: textColor }}
+            >
+              {details}
+            </p>
+          )}
+        </div>
+
+        {/* Minimal Footer */}
+        <div className="flex justify-between items-center mt-4">
+          <div className="text-sm text-gray-500 font-light">
+            {slideNumber} / {totalSlides}
+          </div>
+          <div 
+            className="w-8 h-0.5"
+            style={{ backgroundColor: primaryColor }}
+          />
+        </div>
       </div>
     </div>
   );

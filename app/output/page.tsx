@@ -1,34 +1,22 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
-import Image from "next/image";
 import { Breadcrumb } from "@/components/breadcrumb";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
-import { Share2, Copy, Download, Linkedin, Loader2 } from "lucide-react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Copy, Linkedin, Loader2, Palette, Settings, Share2, Edit3, Sparkles, Trash2, Plus } from "lucide-react";
 import { getData, storeData, STORAGE_KEYS } from "@/lib/local-storage";
-import { 
-  Carousel, 
-  CarouselContent, 
-  CarouselItem, 
-  CarouselNext, 
-  CarouselPrevious 
-} from "@/components/ui/carouselshadcn";
+import { useToast } from "@/hooks/use-toast";
 
-// Import browser-only libraries properly
-import html2canvas from "html2canvas";
-import { saveAs } from "file-saver";
-import JSZip from "jszip";
-
-// Import the template components
-import { ProfessionalTemplate } from "@/components/carousel/templates/professional";
-import { PlayfulTemplate } from "@/components/carousel/templates/playful";
-import { MinimalistTemplate } from "@/components/carousel/templates/minimalist";
+// Import the Canvas-based carousel viewer
+import { CanvasCarouselViewer } from "@/components/carousel/canvas-carousel-viewer";
 
 export default function OutputPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
+  const { toast } = useToast();
   // Initialize with empty arrays/values to match server rendering
   const [bulletPoints, setBulletPoints] = useState<string[]>([]);
   const [style, setStyle] = useState<"professional" | "playful" | "minimalist">("professional");
@@ -41,8 +29,9 @@ export default function OutputPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [hasData, setHasData] = useState(false);
   const [fontFamily, setFontFamily] = useState("arial");
-  const [currentSlide, setCurrentSlide] = useState(0);
-  const [isExporting, setIsExporting] = useState(false);
+  const [backgroundImage, setBackgroundImage] = useState<string | undefined>(undefined);
+  const [backgroundImageOpacity, setBackgroundImageOpacity] = useState(0.3);
+  const [textAlign, setTextAlign] = useState<"left" | "center" | "right">("center");
 
   // Use a separate effect for client-side operations
   useEffect(() => {
@@ -68,7 +57,10 @@ export default function OutputPage() {
       const storedTextColor = getData(STORAGE_KEYS.TEXT_COLOR, "#000000");
       const storedOutputFormat = getData(STORAGE_KEYS.OUTPUT_FORMAT, "linkedin");
       const storedLogo = getData(STORAGE_KEYS.LOGO);
+      const storedBackgroundImage = getData(STORAGE_KEYS.BACKGROUND_IMAGE);
+      const storedBackgroundImageOpacity = getData(STORAGE_KEYS.BACKGROUND_IMAGE_OPACITY, 0.3);
       const storedFontFamily = getData(STORAGE_KEYS.FONT_FAMILY, "arial");
+      const storedTextAlign = getData(STORAGE_KEYS.TEXT_ALIGN, "center");
       
       if (storedBulletPoints && Array.isArray(storedBulletPoints) && storedBulletPoints.length > 0) {
         setBulletPoints(storedBulletPoints);
@@ -84,7 +76,10 @@ export default function OutputPage() {
           setOutputFormat(storedOutputFormat as "linkedin" | "twitter" | "instagram");
         }
         if (storedLogo) setLogo(storedLogo);
+        if (storedBackgroundImage) setBackgroundImage(storedBackgroundImage);
+        if (storedBackgroundImageOpacity !== null) setBackgroundImageOpacity(storedBackgroundImageOpacity);
         if (storedFontFamily) setFontFamily(storedFontFamily);
+        if (storedTextAlign) setTextAlign(storedTextAlign);
         
         setHasData(true);
       } else {
@@ -100,227 +95,58 @@ export default function OutputPage() {
   };
 
   const shareToLinkedIn = () => {
-    // Would be implemented with LinkedIn API
-    alert("LinkedIn sharing would be implemented with their API");
+    const url = encodeURIComponent(window.location.href);
+    const text = encodeURIComponent(`Check out my carousel created with Postora! ${bulletPoints.length} professional slides ready to engage.`);
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${url}&summary=${text}`, '_blank');
   };
 
-  // Get the aspect ratio based on the platform
-  const getAspectRatio = () => {
-    switch (outputFormat) {
-      case "twitter":
-        return "aspect-[16/9]"; // Twitter recommended: 1600x900
-      case "instagram":
-      case "linkedin":
-      default:
-        return "aspect-square"; // Instagram/LinkedIn recommended: 1080x1080
-    }
-  };
-
-  // Get the dimensions for export
-  const getExportDimensions = () => {
-    switch (outputFormat) {
-      case "twitter":
-        return { width: 1600, height: 900 };
-      case "instagram":
-      case "linkedin":
-      default:
-        return { width: 1080, height: 1080 };
-    }
-  };
-
-  // Create a gradient background from the primary and background colors
-  const getGradientBackground = () => {
-    // Extract RGB components from hex colors
-    const hexToRgb = (hex: string) => {
-      const shorthandRegex = /^#?([a-f\d])([a-f\d])([a-f\d])$/i;
-      const fullHex = hex.replace(shorthandRegex, (m, r, g, b) => r + r + g + g + b + b);
-      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(fullHex);
-      return result ? {
-        r: parseInt(result[1], 16),
-        g: parseInt(result[2], 16),
-        b: parseInt(result[3], 16)
-      } : null;
-    };
-
-    // Convert RGB to rgba string with opacity
-    const rgbaString = (hex: string, opacity: number) => {
-      const rgb = hexToRgb(hex);
-      if (!rgb) return hex;
-      return `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, ${opacity})`;
-    };
-
-    // Create a more dynamic gradient based on the style
-    switch (style) {
-      case "professional":
-        // Subtle diagonal gradient
-        return `linear-gradient(135deg, ${backgroundColor} 0%, ${backgroundColor} 70%, ${rgbaString(primaryColor, 0.15)} 100%)`;
-      case "playful":
-        // More playful radial gradient
-        return `radial-gradient(circle at bottom right, ${rgbaString(primaryColor, 0.2)} 0%, ${backgroundColor} 50%)`;
-      case "minimalist":
-        // Very subtle linear gradient
-        return `linear-gradient(to bottom, ${backgroundColor} 0%, ${rgbaString(primaryColor, 0.08)} 100%)`;
-      default:
-        return `linear-gradient(135deg, ${backgroundColor} 0%, ${backgroundColor} 70%, ${rgbaString(primaryColor, 0.15)} 100%)`;
-    }
-  };
-
-  // Render the appropriate template for the slide
-  const renderTemplate = (slideIndex: number) => {
-    const props = {
-      bulletPoint: bulletPoints[slideIndex] || "",
-      slideNumber: slideIndex + 1,
-      totalSlides: bulletPoints.length,
-      logo,
-      primaryColor,
-      backgroundColor,
-      textColor,
-      fontFamily,
-      showGradientBackground: true,
-      gradientBackground: getGradientBackground()
-    };
-
-    switch (style) {
-      case "professional":
-        return <ProfessionalTemplate {...props} />;
-      case "playful":
-        return <PlayfulTemplate {...props} />;
-      case "minimalist":
-        return <MinimalistTemplate {...props} />;
-      default:
-        return <ProfessionalTemplate {...props} />;
-    }
-  };
-
-  // Export current slide as PNG
-  const exportCurrentSlide = async () => {
-    if (!isMounted) return;
-    
-    setIsExporting(true);
+  const copyShareLink = async () => {
     try {
-      const slideElement = document.getElementById(`carousel-slide-${currentSlide}`);
-      if (!slideElement) {
-        console.error("Slide element not found");
-        return;
-      }
-
-      const dimensions = getExportDimensions();
-      
-      // Create a temporary container with exact dimensions to fix aspect ratio issues
-      const container = document.createElement('div');
-      container.style.width = `${dimensions.width}px`;
-      container.style.height = `${dimensions.height}px`;
-      container.style.position = 'absolute';
-      container.style.left = '-9999px';
-      container.style.top = '-9999px';
-      container.style.background = 'transparent';
-      
-      // Clone the slide to the temporary container
-      const clone = slideElement.cloneNode(true) as HTMLElement;
-      clone.style.width = '100%';
-      clone.style.height = '100%';
-      container.appendChild(clone);
-      document.body.appendChild(container);
-      
-      // Use html2canvas with better options
-      const canvas = await html2canvas(container, {
-        scale: 2,
-        useCORS: true,
-        allowTaint: true,
-        backgroundColor: null,
-        width: dimensions.width,
-        height: dimensions.height,
-        imageTimeout: 0,
-        logging: false
+      await navigator.clipboard.writeText(window.location.href);
+      toast({
+        title: "Link copied!",
+        description: "Share link has been copied to clipboard",
       });
-      
-      // Clean up temporary elements
-      document.body.removeChild(container);
-      
-      const dataUrl = canvas.toDataURL("image/png");
-      const link = document.createElement("a");
-      link.download = `slide-${currentSlide + 1}-${outputFormat}.png`;
-      link.href = dataUrl;
-      link.click();
     } catch (error) {
-      console.error("Error exporting slide:", error);
-    } finally {
-      setIsExporting(false);
+      toast({
+        title: "Copy failed",
+        description: "Please copy the URL manually",
+        variant: "destructive",
+      });
     }
   };
 
-  // Export all slides as a ZIP file
-  const exportAllSlides = async () => {
-    if (!isMounted) return;
-    
-    setIsExporting(true);
+  const copyAllText = async () => {
     try {
-      const zip = new JSZip();
-      const dimensions = getExportDimensions();
-      const slideFolder = zip.folder("slides");
-      
-      if (!slideFolder) {
-        console.error("Could not create folder in zip");
-        return;
-      }
-
-      // Export each slide one by one
-      for (let i = 0; i < bulletPoints.length; i++) {
-        const slideElement = document.getElementById(`carousel-slide-${i}`);
-        if (!slideElement) continue;
-        
-        // Create a temporary container with exact dimensions
-        const container = document.createElement('div');
-        container.style.width = `${dimensions.width}px`;
-        container.style.height = `${dimensions.height}px`;
-        container.style.position = 'absolute';
-        container.style.left = '-9999px';
-        container.style.top = '-9999px';
-        container.style.background = 'transparent';
-        
-        // Clone the slide to the temporary container
-        const clone = slideElement.cloneNode(true) as HTMLElement;
-        clone.style.width = '100%';
-        clone.style.height = '100%';
-        container.appendChild(clone);
-        document.body.appendChild(container);
-        
-        // Use html2canvas with better options
-        const canvas = await html2canvas(container, {
-          scale: 2,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: null,
-          width: dimensions.width,
-          height: dimensions.height,
-          imageTimeout: 0,
-          logging: false
-        });
-        
-        // Clean up
-        document.body.removeChild(container);
-        
-        const dataUrl = canvas.toDataURL("image/png");
-        const base64Data = dataUrl.split(",")[1];
-        slideFolder.file(`slide-${i + 1}-${outputFormat}.png`, base64Data, { base64: true });
-      }
-
-      // Generate and download the ZIP file
-      const content = await zip.generateAsync({ type: "blob" });
-      saveAs(content, `${outputFormat}-carousel-slides.zip`);
+      const allText = bulletPoints.join('\n\n---\n\n');
+      await navigator.clipboard.writeText(allText);
+      toast({
+        title: "Text copied!",
+        description: "All slide content has been copied to clipboard",
+      });
     } catch (error) {
-      console.error("Error exporting all slides:", error);
-    } finally {
-      setIsExporting(false);
+      toast({
+        title: "Copy failed",
+        description: "Please copy the text manually",
+        variant: "destructive",
+      });
     }
   };
 
   // If we're loading or there's data being processed, show loading state
   if (!isMounted || isLoading) {
     return (
-      <main className="container py-10 max-w-6xl mx-auto px-4">
-        <div className="flex justify-center items-center min-h-[60vh]">
-          <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="container py-10 max-w-6xl mx-auto px-4">
+          <div className="flex justify-center items-center min-h-[60vh]">
+            <div className="text-center">
+              <div className="w-16 h-16 bg-white rounded-full shadow-lg flex items-center justify-center mx-auto mb-4">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+              <h2 className="text-xl font-semibold mb-2">Loading Your Carousel</h2>
+              <p className="text-muted-foreground">Preparing Canvas renderer...</p>
+            </div>
+          </div>
         </div>
       </main>
     );
@@ -329,137 +155,336 @@ export default function OutputPage() {
   // If there's no data, show message prompting user to create content
   if (!hasData) {
     return (
-      <main className="container py-10 max-w-6xl mx-auto px-4">
-        <Breadcrumb />
-        <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-lg mx-auto text-center">
-          <h1 className="text-2xl font-bold mb-4">No Carousel Data Found</h1>
-          <p className="text-muted-foreground mb-6">
-            It looks like you haven't generated any content yet. 
-            Start by creating a carousel from the content generation page.
-          </p>
-          <Button asChild>
-            <Link href="/create">Create Carousel</Link>
-          </Button>
+      <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+        <div className="container py-10 max-w-6xl mx-auto px-4">
+          <Breadcrumb />
+          <div className="flex flex-col items-center justify-center min-h-[60vh] max-w-lg mx-auto text-center">
+            <div className="w-20 h-20 bg-white rounded-full shadow-lg flex items-center justify-center mx-auto mb-6">
+              <Sparkles className="h-10 w-10 text-primary" />
+            </div>
+            <h1 className="text-3xl font-bold mb-4">Ready to Create?</h1>
+            <p className="text-muted-foreground mb-8 text-lg">
+              It looks like you haven&apos;t generated any content yet. 
+              Let&apos;s create your first high-quality carousel!
+            </p>
+            <Button asChild size="lg" className="shadow-lg">
+              <Link href="/create">
+                <Sparkles className="mr-2 h-5 w-5" />
+                Start Creating
+              </Link>
+            </Button>
+          </div>
         </div>
       </main>
     );
   }
 
-  // Main content view with carousel
+  // Main content view with Canvas-based carousel
   return (
-    <main className="container py-10 max-w-6xl mx-auto px-4">
-      <Breadcrumb />
-      
-      <h1 className="text-3xl font-bold mb-8">Your Carousel</h1>
-      
-      <div className="grid grid-cols-1 gap-8">
-        {/* Carousel implementation using Shadcn */}
-        <div className="w-full max-w-3xl mx-auto">
-          <Carousel className="mx-auto" setApi={(api) => {
-            api?.on("select", () => {
-              setCurrentSlide(api.selectedScrollSnap());
-            });
-          }}>
-            <CarouselContent>
-              {bulletPoints.map((point, index) => (
-                <CarouselItem key={index}>
-                  <div className={`${getAspectRatio()} w-full rounded-md overflow-hidden border shadow-lg`} id={`carousel-slide-${index}`}>
-                    {renderTemplate(index)}
-                  </div>
-                </CarouselItem>
-              ))}
-            </CarouselContent>
-            <CarouselPrevious className="left-2" />
-            <CarouselNext className="right-2" />
-          </Carousel>
-          
-          <div className="flex justify-center mt-6 gap-4">
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2"
-              onClick={exportCurrentSlide}
-              disabled={isExporting}
-            >
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Export Current Slide
-            </Button>
-            <Button 
-              variant="outline" 
-              className="flex items-center gap-2"
-              onClick={exportAllSlides}
-              disabled={isExporting}
-            >
-              {isExporting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4" />
-              )}
-              Export All Slides
-            </Button>
-          </div>
-        </div>
+    <main className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+      <div className="container py-6 max-w-7xl mx-auto px-4">
+        <Breadcrumb />
         
-        <Tabs defaultValue="edit" className="w-full max-w-3xl mx-auto mt-8">
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="edit">Edit Text</TabsTrigger>
-            <TabsTrigger value="share">Share</TabsTrigger>
-          </TabsList>
-          
-          <TabsContent value="edit" className="py-4">
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold">Edit Bullet Points</h2>
-              {bulletPoints.map((point, index) => (
-                <div key={index} className="space-y-2">
-                  <label className="text-sm font-medium">
-                    Bullet Point {index + 1}
-                  </label>
-                  <textarea
-                    value={point}
-                    onChange={(e) => {
-                      const newPoints = [...bulletPoints];
-                      newPoints[index] = e.target.value;
-                      setBulletPoints(newPoints);
-                      // Update storage with new bullet points
-                      storeData(STORAGE_KEYS.BULLET_POINTS, newPoints);
-                    }}
-                    className="w-full min-h-[100px] p-3 rounded-lg border"
-                  />
-                </div>
-              ))}
+        <div className="space-y-12">
+          {/* Hero Header */}
+          <div className="text-center space-y-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-full border shadow-sm">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium">Canvas-Powered • High Quality</span>
             </div>
-          </TabsContent>
-          
-          <TabsContent value="share" className="py-4">
-            <div className="space-y-6">
-              <h2 className="text-xl font-semibold">Share Your Carousel</h2>
-              <div className="flex gap-4">
+            
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-600 bg-clip-text text-transparent">
+              Your Carousel is Ready
+            </h1>
+            
+            <p className="text-muted-foreground max-w-2xl mx-auto text-lg">
+              {bulletPoints.length} professionally designed slides, optimized for {outputFormat.toUpperCase()}, 
+              ready to engage your audience.
+            </p>
+
+            <div className="flex flex-wrap justify-center gap-3">
+              <Badge variant="secondary" className="text-sm">
+                {bulletPoints.length} Slides
+              </Badge>
+              <Badge variant="outline" className="text-sm">
+                {outputFormat.toUpperCase()} Format
+              </Badge>
+              <Badge variant="outline" className="text-sm capitalize">
+                {style} Style
+              </Badge>
+            </div>
+          </div>
+
+          {/* Main Carousel Section */}
+          <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
+            <CardHeader className="pb-6">
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-2xl">
+                    <Palette className="h-6 w-6" />
+                    Live Preview
+                  </CardTitle>
+                  <CardDescription className="text-base mt-2">
+                    These are the exact images that will be downloaded
+                  </CardDescription>
+                </div>
                 <Button 
                   variant="outline" 
-                  className="flex items-center gap-2"
-                  onClick={() => {
-                    navigator.clipboard.writeText(window.location.href);
-                    alert("Link copied to clipboard!");
-                  }}
+                  onClick={() => router.push('/create')}
+                  className="shrink-0"
+                  size="lg"
                 >
-                  <Copy className="h-4 w-4" />
-                  Copy Link
-                </Button>
-                
-                <Button 
-                  className="flex items-center gap-2"
-                  onClick={shareToLinkedIn}
-                >
-                  <Linkedin className="h-4 w-4" />
-                  Share to LinkedIn
+                  <Edit3 className="h-4 w-4 mr-2" />
+                  Edit Design
                 </Button>
               </div>
+            </CardHeader>
+            <CardContent className="px-8 pb-8">
+              <CanvasCarouselViewer
+                bulletPoints={bulletPoints}
+                style={style}
+                logo={logo}
+                primaryColor={primaryColor}
+                backgroundColor={backgroundColor}
+                textColor={textColor}
+                outputFormat={outputFormat}
+                fontFamily={fontFamily}
+                backgroundImage={backgroundImage}
+                backgroundImageOpacity={backgroundImageOpacity}
+                textAlign={textAlign}
+              />
+            </CardContent>
+          </Card>
+
+          {/* Content Management Section */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+            {/* Edit Content - Now gets more space */}
+            <div className="lg:col-span-2">
+              <Card className="shadow-xl border-0 bg-white/90 backdrop-blur-sm">
+                <CardHeader className="pb-6">
+                  <CardTitle className="text-2xl flex items-center gap-2">
+                    <Edit3 className="h-6 w-6" />
+                    Edit Slide Content
+                  </CardTitle>
+                  <CardDescription className="text-base">
+                    Make changes to your slide text. Updates will be reflected in real-time.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="px-8">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    {bulletPoints.map((point, index) => (
+                      <div key={index} className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <label className="text-base font-semibold text-gray-700 flex items-center gap-2">
+                            <span>Slide {index + 1}</span>
+                            <Badge variant="outline" className="text-sm">
+                              {point.length} characters
+                            </Badge>
+                          </label>
+                          {bulletPoints.length > 1 && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                const newPoints = bulletPoints.filter((_, i) => i !== index);
+                                setBulletPoints(newPoints);
+                                storeData(STORAGE_KEYS.BULLET_POINTS, newPoints);
+                              }}
+                              className="text-red-600 hover:text-red-700 hover:border-red-300 hover:bg-red-50"
+                            >
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </Button>
+                          )}
+                        </div>
+                        <textarea
+                          value={point}
+                          onChange={(e) => {
+                            const newPoints = [...bulletPoints];
+                            newPoints[index] = e.target.value;
+                            setBulletPoints(newPoints);
+                            storeData(STORAGE_KEYS.BULLET_POINTS, newPoints);
+                          }}
+                          className="w-full h-32 p-4 text-base rounded-lg border-2 border-gray-200 resize-none focus:ring-2 focus:ring-primary focus:border-primary transition-all duration-200 bg-gray-50 focus:bg-white"
+                          placeholder="Enter slide content..."
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  
+                  {/* Add New Slide Button */}
+                  <div className="flex justify-center pt-6">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        const newPoints = [...bulletPoints, ""];
+                        setBulletPoints(newPoints);
+                        storeData(STORAGE_KEYS.BULLET_POINTS, newPoints);
+                      }}
+                      className="text-blue-600 hover:text-blue-700 hover:border-blue-300 hover:bg-blue-50"
+                    >
+                      <Plus className="h-4 w-4 mr-2" />
+                      Add New Slide
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
-          </TabsContent>
-        </Tabs>
+            
+            {/* Actions Sidebar */}
+            <div className="lg:col-span-1 space-y-6">
+              {/* Quick Actions */}
+              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Settings className="h-5 w-5" />
+                    Quick Actions
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start h-12 text-base"
+                    onClick={() => router.push('/create')}
+                  >
+                    <Edit3 className="h-5 w-5 mr-3" />
+                    Edit Design Settings
+                  </Button>
+                  
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start h-12 text-base"
+                    onClick={copyAllText}
+                  >
+                    <Copy className="h-5 w-5 mr-3" />
+                    Copy All Text
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Share Section */}
+              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-xl flex items-center gap-2">
+                    <Share2 className="h-5 w-5" />
+                    Share & Export
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <Button 
+                    variant="outline" 
+                    className="w-full justify-start h-12 text-base"
+                    onClick={copyShareLink}
+                  >
+                    <Copy className="h-5 w-5 mr-3" />
+                    Copy Share Link
+                  </Button>
+                  
+                  <Button 
+                    className="w-full justify-start h-12 text-base bg-[#0077B5] hover:bg-[#005885]"
+                    onClick={shareToLinkedIn}
+                  >
+                    <Linkedin className="h-5 w-5 mr-3" />
+                    Share on LinkedIn
+                  </Button>
+                </CardContent>
+              </Card>
+
+              {/* Content Stats */}
+              <Card className="shadow-lg border-0 bg-white/90 backdrop-blur-sm">
+                <CardHeader className="pb-4">
+                  <CardTitle className="text-xl">Content Stats</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Total Slides</span>
+                    <Badge variant="secondary" className="text-base px-3 py-1">
+                      {bulletPoints.length}
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Average Length</span>
+                    <Badge variant="outline" className="text-base px-3 py-1">
+                      {Math.round(bulletPoints.reduce((acc, point) => acc + point.length, 0) / bulletPoints.length)} chars
+                    </Badge>
+                  </div>
+                  <div className="flex justify-between items-center">
+                    <span className="text-gray-600">Platform</span>
+                    <Badge className="text-base px-3 py-1">
+                      {outputFormat.toUpperCase()}
+                    </Badge>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+
+          {/* Statistics Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            <Card className="text-center shadow-lg border-0 bg-white/90 backdrop-blur-sm hover:shadow-xl transition-shadow">
+              <CardContent className="p-8">
+                <div className="text-4xl font-bold text-primary mb-3">{bulletPoints.length}</div>
+                <div className="text-base text-muted-foreground font-medium">Total Slides</div>
+              </CardContent>
+            </Card>
+            
+            <Card className="text-center shadow-lg border-0 bg-white/90 backdrop-blur-sm hover:shadow-xl transition-shadow">
+              <CardContent className="p-8">
+                <div className="text-4xl font-bold text-green-600 mb-3">
+                  {outputFormat === 'twitter' ? '1600×900' : '1080×1080'}
+                </div>
+                <div className="text-base text-muted-foreground font-medium">Resolution (px)</div>
+              </CardContent>
+            </Card>
+            
+            <Card className="text-center shadow-lg border-0 bg-white/90 backdrop-blur-sm hover:shadow-xl transition-shadow">
+              <CardContent className="p-8">
+                <div className="text-4xl font-bold text-blue-600 mb-3 capitalize">{style}</div>
+                <div className="text-base text-muted-foreground font-medium">Design Style</div>
+              </CardContent>
+            </Card>
+
+            <Card className="text-center shadow-lg border-0 bg-white/90 backdrop-blur-sm hover:shadow-xl transition-shadow">
+              <CardContent className="p-8">
+                <div className="text-4xl font-bold text-purple-600 mb-3">PNG</div>
+                <div className="text-base text-muted-foreground font-medium">Export Format</div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Call to Action */}
+          <Card className="shadow-xl border-0 bg-gradient-to-r from-primary to-primary/80 text-white">
+            <CardContent className="p-8">
+              <div className="text-center space-y-4">
+                <h3 className="text-2xl font-bold">Ready to Share Your Story?</h3>
+                <p className="text-primary-foreground/90 max-w-2xl mx-auto">
+                  Your carousel is optimized for maximum engagement. Download and share across your social platforms 
+                  to start conversations and grow your audience.
+                </p>
+                <div className="flex flex-wrap justify-center gap-4">
+                  <Button 
+                    variant="secondary" 
+                    size="lg"
+                    onClick={() => router.push('/create')}
+                    className="shadow-lg"
+                  >
+                    <Sparkles className="mr-2 h-5 w-5" />
+                    Create Another
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="lg"
+                    onClick={shareToLinkedIn}
+                    className="bg-white/10 border-white/20 text-white hover:bg-white/20 shadow-lg"
+                  >
+                    <Linkedin className="mr-2 h-5 w-5" />
+                    Share Now
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </main>
   );

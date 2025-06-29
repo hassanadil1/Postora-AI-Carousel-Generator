@@ -7,6 +7,7 @@ import { Linkedin, Twitter, Instagram, Sparkles, Upload, X, Loader2 } from "luci
 import { ColorPicker } from "@/components/color-picker";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Slider } from "@/components/ui/slider";
 import Image from "next/image";
 import {
   Collapsible,
@@ -18,10 +19,17 @@ import { useToast } from "@/hooks/use-toast";
 import { FontSelector } from "@/components/font-selector";
 import { storeData, getData, removeData, STORAGE_KEYS } from "@/lib/local-storage";
 
+// Import template components
+import { ProfessionalTemplate } from "@/components/carousel/templates/professional";
+import { PlayfulTemplate } from "@/components/carousel/templates/playful";
+import { MinimalistTemplate } from "@/components/carousel/templates/minimalist";
+
 export function OutputCustomization() {
   const router = useRouter();
   const { toast } = useToast();
   const [logoPreview, setLogoPreview] = useState<string | null>(null);
+  const [backgroundImagePreview, setBackgroundImagePreview] = useState<string | null>(null);
+  const [backgroundImageOpacity, setBackgroundImageOpacity] = useState(0.3);
   const [isGenerating, setIsGenerating] = useState(false);
   const { bulletPoints } = useGeneration();
   const [primaryColor, setPrimaryColor] = useState("#0f172a");
@@ -30,6 +38,7 @@ export function OutputCustomization() {
   const [outputFormat, setOutputFormat] = useState("linkedin");
   const [stylePreset, setStylePreset] = useState("professional");
   const [fontFamily, setFontFamily] = useState("arial");
+  const [textAlign, setTextAlign] = useState<"left" | "center" | "right">("center");
 
   const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -39,6 +48,19 @@ export function OutputCustomization() {
         const result = e.target?.result as string;
         setLogoPreview(result);
         storeData(STORAGE_KEYS.LOGO, result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleBackgroundImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file && (file.type.startsWith('image/png') || file.type.startsWith('image/jpeg'))) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setBackgroundImagePreview(result);
+        storeData(STORAGE_KEYS.BACKGROUND_IMAGE, result);
       };
       reader.readAsDataURL(file);
     }
@@ -58,9 +80,28 @@ export function OutputCustomization() {
     }
   };
 
+  const handleBackgroundImageDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files?.[0];
+    if (file && (file.type.startsWith('image/png') || file.type.startsWith('image/jpeg'))) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        setBackgroundImagePreview(result);
+        storeData(STORAGE_KEYS.BACKGROUND_IMAGE, result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const removeLogo = () => {
     setLogoPreview(null);
     removeData(STORAGE_KEYS.LOGO);
+  };
+
+  const removeBackgroundImage = () => {
+    setBackgroundImagePreview(null);
+    removeData(STORAGE_KEYS.BACKGROUND_IMAGE);
   };
 
   const handleGenerate = async () => {
@@ -82,6 +123,8 @@ export function OutputCustomization() {
       storeData(STORAGE_KEYS.TEXT_COLOR, textColor);
       storeData(STORAGE_KEYS.OUTPUT_FORMAT, outputFormat);
       storeData(STORAGE_KEYS.FONT_FAMILY, fontFamily);
+      storeData(STORAGE_KEYS.BACKGROUND_IMAGE_OPACITY, backgroundImageOpacity);
+      storeData(STORAGE_KEYS.TEXT_ALIGN, textAlign);
       
       // Navigate to output page
       router.push('/output');
@@ -105,7 +148,10 @@ export function OutputCustomization() {
     const storedOutputFormat = getData(STORAGE_KEYS.OUTPUT_FORMAT);
     const storedStylePreset = getData(STORAGE_KEYS.STYLE);
     const storedLogo = getData(STORAGE_KEYS.LOGO);
+    const storedBackgroundImage = getData(STORAGE_KEYS.BACKGROUND_IMAGE);
+    const storedBackgroundImageOpacity = getData(STORAGE_KEYS.BACKGROUND_IMAGE_OPACITY);
     const storedFontFamily = getData(STORAGE_KEYS.FONT_FAMILY);
+    const storedTextAlign = getData(STORAGE_KEYS.TEXT_ALIGN);
     
     if (storedPrimaryColor) setPrimaryColor(storedPrimaryColor);
     if (storedBackgroundColor) setBackgroundColor(storedBackgroundColor);
@@ -113,7 +159,10 @@ export function OutputCustomization() {
     if (storedOutputFormat) setOutputFormat(storedOutputFormat);
     if (storedStylePreset) setStylePreset(storedStylePreset);
     if (storedLogo) setLogoPreview(storedLogo);
+    if (storedBackgroundImage) setBackgroundImagePreview(storedBackgroundImage);
+    if (storedBackgroundImageOpacity !== null) setBackgroundImageOpacity(storedBackgroundImageOpacity);
     if (storedFontFamily) setFontFamily(storedFontFamily);
+    if (storedTextAlign) setTextAlign(storedTextAlign);
   }, []);
 
   return (
@@ -232,7 +281,24 @@ export function OutputCustomization() {
                     {index + 1}
                   </div>
                   <div className="flex-1">
-                    <p className="text-sm">{point}</p>
+                    <p className="text-sm">
+                      {(() => {
+                        // Clean up any remaining asterisks and format properly
+                        const cleanPoint = point.replace(/\*\*(.*?)\*\*/g, '$1');
+                        if (cleanPoint.includes(':')) {
+                          const [heading, ...details] = cleanPoint.split(':');
+                          return (
+                            <>
+                              <span className="font-semibold">{heading.trim()}</span>
+                              {details.length > 0 && (
+                                <>: {details.join(':').trim()}</>
+                              )}
+                            </>
+                          );
+                        }
+                        return cleanPoint;
+                      })()}
+                    </p>
                     <div className="mt-1 w-full bg-gray-200 rounded-full h-1.5">
                       <div 
                         className="bg-primary h-1.5 rounded-full" 
@@ -296,6 +362,53 @@ export function OutputCustomization() {
               />
             </div>
             
+            {/* Text Alignment */}
+            <div className="space-y-4">
+              <label className="text-sm font-medium">Text Alignment</label>
+              <RadioGroup 
+                value={textAlign}
+                onValueChange={(value: "left" | "center" | "right") => {
+                  setTextAlign(value);
+                  storeData(STORAGE_KEYS.TEXT_ALIGN, value);
+                }}
+                className="grid grid-cols-3 gap-4"
+              >
+                <div>
+                  <RadioGroupItem value="left" id="align-left" className="peer sr-only" />
+                  <Label
+                    htmlFor="align-left"
+                    className="flex flex-col items-center justify-center rounded-lg border-2 border-muted p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                  >
+                    <span className="text-lg font-medium">Left</span>
+                    <span className="text-sm text-muted-foreground">← Align</span>
+                  </Label>
+                </div>
+                
+                <div>
+                  <RadioGroupItem value="center" id="align-center" className="peer sr-only" />
+                  <Label
+                    htmlFor="align-center"
+                    className="flex flex-col items-center justify-center rounded-lg border-2 border-muted p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                  >
+                    <span className="text-lg font-medium">Center</span>
+                    <span className="text-sm text-muted-foreground">↔ Align</span>
+                  </Label>
+                </div>
+
+                <div>
+                  <RadioGroupItem value="right" id="align-right" className="peer sr-only" />
+                  <Label
+                    htmlFor="align-right"
+                    className="flex flex-col items-center justify-center rounded-lg border-2 border-muted p-4 hover:bg-accent hover:text-accent-foreground peer-data-[state=checked]:border-primary [&:has([data-state=checked])]:border-primary"
+                  >
+                    <span className="text-lg font-medium">Right</span>
+                    <span className="text-sm text-muted-foreground">→ Align</span>
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+            
+            {/* Logo Upload */}
             <div className="space-y-2">
               <label className="text-sm font-medium">Upload Logo</label>
               <div
@@ -347,42 +460,117 @@ export function OutputCustomization() {
                 )}
               </div>
             </div>
+
+            {/* Background Image Upload */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Background Image (Optional)</label>
+              <div
+                className="border-2 border-dashed rounded-lg p-4 text-center"
+                onDragOver={(e) => e.preventDefault()}
+                onDrop={handleBackgroundImageDrop}
+              >
+                <input
+                  type="file"
+                  id="background-upload"
+                  className="hidden"
+                  accept=".png,.jpg,.jpeg"
+                  onChange={handleBackgroundImageUpload}
+                />
+                
+                {backgroundImagePreview ? (
+                  <div className="space-y-4">
+                    <div className="relative w-32 h-32 mx-auto">
+                      <Image
+                        src={backgroundImagePreview}
+                        alt="Background preview"
+                        fill
+                        className="object-cover rounded"
+                      />
+                    </div>
+                    <div className="space-y-3">
+                      <label className="text-sm font-medium">Background Opacity: {Math.round(backgroundImageOpacity * 100)}%</label>
+                      <Slider
+                        value={[backgroundImageOpacity]}
+                        onValueChange={(value) => {
+                          setBackgroundImageOpacity(value[0]);
+                          storeData(STORAGE_KEYS.BACKGROUND_IMAGE_OPACITY, value[0]);
+                        }}
+                        min={0.1}
+                        max={1}
+                        step={0.1}
+                        className="w-full"
+                      />
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={removeBackgroundImage}
+                      className="gap-2"
+                    >
+                      <X className="h-4 w-4" />
+                      Remove Background
+                    </Button>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="background-upload"
+                    className="flex flex-col items-center gap-2 cursor-pointer"
+                  >
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <p className="text-sm text-muted-foreground">
+                      Drag and drop background image here or click to upload
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      Supports: PNG, JPG
+                    </p>
+                  </label>
+                )}
+              </div>
+            </div>
           </CollapsibleContent>
         </Collapsible>
 
-        {/* Preview Sample */}
+        {/* Live Preview */}
         {bulletPoints && bulletPoints.length > 0 && (
           <div className="p-4 rounded-lg border bg-muted/20">
-            <p className="text-sm text-muted-foreground mb-2">Preview (First Slide)</p>
-            <div className={`aspect-${outputFormat === 'twitter' ? '[16/9]' : 'square'} rounded-md overflow-hidden shadow-sm`} style={{ backgroundColor }}>
-              <div className="w-full h-full p-4 flex flex-col" style={{ fontFamily: `var(--font-${fontFamily}, ${fontFamily}, sans-serif)` }}>
-                <div className="flex justify-between items-center">
-                  {logoPreview && (
-                    <div className="w-8 h-8 relative">
-                      <Image
-                        src={logoPreview}
-                        alt="Logo"
-                        fill
-                        className="object-contain"
-                      />
-                    </div>
-                  )}
-                  <div 
-                    className="h-1 flex-grow ml-2 rounded-full" 
-                    style={{ backgroundColor: primaryColor }}
-                  />
-                </div>
-                <div className="flex-grow flex flex-col justify-center">
-                  <h3 
-                    className="text-xl font-bold mb-2"
-                    style={{ color: primaryColor }}
-                  >
-                    {bulletPoints[0]?.split(':')[0] || bulletPoints[0]?.substring(0, 40)}
-                  </h3>
-                  <p style={{ color: textColor }}>
-                    {bulletPoints[0]?.split(':')[1] || ''}
-                  </p>
-                </div>
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-muted-foreground">Live Preview</p>
+              <span className="text-xs text-muted-foreground capitalize">{stylePreset} Style</span>
+            </div>
+            
+            <div className="max-w-md mx-auto">
+              <div className={`aspect-${outputFormat === 'twitter' ? '[16/9]' : 'square'} rounded-md overflow-hidden shadow-sm border-2`}>
+                {(() => {
+                  const templateProps = {
+                    bulletPoint: bulletPoints[0] || "",
+                    slideNumber: 1,
+                    totalSlides: bulletPoints.length,
+                    logo: logoPreview || undefined,
+                    primaryColor,
+                    backgroundColor,
+                    textColor,
+                    fontFamily,
+                    backgroundImage: backgroundImagePreview || undefined,
+                    backgroundImageOpacity
+                  };
+
+                  switch (stylePreset) {
+                    case "professional":
+                      return <ProfessionalTemplate {...templateProps} />;
+                    case "playful":
+                      return <PlayfulTemplate {...templateProps} />;
+                    case "minimalist":
+                      return <MinimalistTemplate {...templateProps} />;
+                    default:
+                      return <ProfessionalTemplate {...templateProps} />;
+                  }
+                })()}
+              </div>
+              
+              <div className="mt-3 text-center">
+                <p className="text-xs text-muted-foreground">
+                  All customizations are applied in real-time
+                </p>
               </div>
             </div>
           </div>
