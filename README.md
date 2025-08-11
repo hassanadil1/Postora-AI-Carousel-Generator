@@ -1,6 +1,6 @@
 # Postora AI Carousel Generator
 
-An AI-powered web application that generates Instagram carousel posts using advanced AI APIs.
+An AI-powered web application that generates social media carousels posts using advanced AI APIs.
 
 ## Features
 
